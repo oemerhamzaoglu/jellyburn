@@ -53,7 +53,7 @@ class JellyfinClient:
             "IncludeItemTypes": "Audio",
             "Recursive": "true",
             "Limit": limit,
-            "Fields": "RunTimeTicks,AlbumArtist,Album,Path",
+            "Fields": "RunTimeTicks,AlbumArtist,Album,Path,ParentId,ArtistIds",
             "UserId": uid,
         }
         if query:

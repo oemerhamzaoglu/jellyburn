@@ -70,7 +70,6 @@ class MainWindow(Gtk.ApplicationWindow):
             color: #7070a0;
             border-bottom: 1px solid #0a0a14;
             font-size: 11px;
-            text-transform: uppercase;
             letter-spacing: 0.05em;
             padding: 3px 6px;
         }
@@ -165,6 +164,11 @@ class MainWindow(Gtk.ApplicationWindow):
         }
         dialog { background-color: #1a1a2e; }
         dialog .dialog-action-area button { font-size: 12px; }
+        paned separator {
+            background-color: #222236;
+            min-width: 1px;
+            min-height: 1px;
+        }
         """
         provider = Gtk.CssProvider()
         provider.load_from_data(css.encode())
@@ -196,14 +200,48 @@ class MainWindow(Gtk.ApplicationWindow):
         left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 
         search_box = Gtk.Box(spacing=6, margin=8)
-        self.search_entry = Gtk.SearchEntry(placeholder_text="Künstler, Album oder Titel suchen…")
+        self.search_entry = Gtk.SearchEntry(placeholder_text="Suchen…")
         self.search_entry.connect("search-changed", self._on_search)
         search_box.pack_start(self.search_entry, True, True, 0)
         left.pack_start(search_box, False, False, 0)
         left.pack_start(Gtk.Separator(), False, False, 0)
 
-        sw = Gtk.ScrolledWindow()
-        sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        # ── Browser: Künstler | Alben ──
+        browser_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        browser_paned.set_position(200)
+
+        def _browser_col(store, title):
+            sw = Gtk.ScrolledWindow()
+            sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+            tv = Gtk.TreeView(model=store, headers_visible=True)
+            tv.set_rules_hint(True)
+            rend = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
+            col = Gtk.TreeViewColumn(title, rend, text=1)
+            col.set_expand(True)
+            tv.append_column(col)
+            sw.add(tv)
+            return sw, tv
+
+        # cols: 0=Id  1=Name
+        self.artist_store = Gtk.ListStore(str, str)
+        artist_sw, self.artist_view = _browser_col(self.artist_store, "Künstler")
+        self.artist_view.get_selection().connect("changed", self._on_artist_selected)
+
+        self.album_store = Gtk.ListStore(str, str)
+        album_sw, self.album_view = _browser_col(self.album_store, "Alben")
+        self.album_view.get_selection().connect("changed", self._on_album_selected)
+
+        browser_paned.pack1(artist_sw, resize=True, shrink=False)
+        browser_paned.pack2(album_sw, resize=True, shrink=False)
+
+        # ── Vertikaler Split: Browser oben, Tracks unten ──
+        vpaned = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
+        vpaned.set_position(180)
+        vpaned.pack1(browser_paned, resize=False, shrink=False)
+
+        track_sw = Gtk.ScrolledWindow()
+        track_sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        # cols: 0=Id  1=Titel  2=Künstler  3=Album  4=Dauer
         self.track_store = Gtk.ListStore(str, str, str, str, str)
         self.track_view = Gtk.TreeView(model=self.track_store, headers_visible=True)
         self.track_view.set_activate_on_single_click(False)
@@ -219,8 +257,10 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.track_view.get_selection().set_mode(Gtk.SelectionMode.MULTIPLE)
         self.track_view.connect("row-activated", self._on_track_activated)
-        sw.add(self.track_view)
-        left.pack_start(sw, True, True, 0)
+        track_sw.add(self.track_view)
+        vpaned.pack2(track_sw, resize=True, shrink=False)
+
+        left.pack_start(vpaned, True, True, 0)
 
         self.lib_status = Gtk.Label(label="Nicht verbunden", xalign=0, margin=4)
         self.lib_status.get_style_context().add_class("lib-status")
@@ -380,8 +420,59 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _populate_tracks(self, tracks):
         self.all_tracks = tracks
+        self._fill_artist_store()
         self._fill_track_store(tracks)
         self.lib_status.set_text(f"{len(tracks)} Tracks geladen")
+
+    def _fill_artist_store(self):
+        seen = {}
+        self.artist_store.clear()
+        self.artist_store.append(("", "Alle Künstler"))
+        for t in self.all_tracks:
+            for aid in t.get("ArtistIds", []):
+                if aid not in seen:
+                    seen[aid] = track_artist(t)
+        for aid, name in sorted(seen.items(), key=lambda x: x[1].lower()):
+            self.artist_store.append((aid, name))
+        # Alle Künstler vorauswählen ohne Handler auszulösen
+        self.artist_view.get_selection().select_path(Gtk.TreePath.new_first())
+
+    def _fill_album_store(self, tracks):
+        seen = {}
+        self.album_store.clear()
+        self.album_store.append(("", "Alle Alben"))
+        for t in tracks:
+            pid = t.get("ParentId", "")
+            if pid and pid not in seen:
+                seen[pid] = t.get("Album", "?")
+        for pid, name in sorted(seen.items(), key=lambda x: x[1].lower()):
+            self.album_store.append((pid, name))
+        self.album_view.get_selection().select_path(Gtk.TreePath.new_first())
+
+    def _on_artist_selected(self, selection):
+        model, it = selection.get_selected()
+        if not it:
+            return
+        artist_id = model[it][0]
+        if artist_id == "":
+            self._artist_tracks = self.all_tracks
+        else:
+            self._artist_tracks = [
+                t for t in self.all_tracks if artist_id in t.get("ArtistIds", [])
+            ]
+        self._fill_album_store(self._artist_tracks)
+        self._fill_track_store(self._artist_tracks)
+
+    def _on_album_selected(self, selection):
+        model, it = selection.get_selected()
+        if not it:
+            return
+        album_id = model[it][0]
+        source = getattr(self, "_artist_tracks", self.all_tracks)
+        if album_id == "":
+            self._fill_track_store(source)
+        else:
+            self._fill_track_store([t for t in source if t.get("ParentId") == album_id])
 
     def _fill_track_store(self, tracks):
         self.track_store.clear()
@@ -397,16 +488,25 @@ class MainWindow(Gtk.ApplicationWindow):
     # ── Suche ──
     def _on_search(self, entry):
         query = entry.get_text().lower()
+        all_tracks = getattr(self, "all_tracks", [])
         if not query:
-            self._fill_track_store(getattr(self, "all_tracks", []))
+            # Browser-Selektion wiederherstellen
+            sel = self.album_view.get_selection()
+            model, it = sel.get_selected()
+            if it:
+                album_id = model[it][0]
+                source = getattr(self, "_artist_tracks", all_tracks)
+                self._fill_track_store(source if album_id == "" else
+                                       [t for t in source if t.get("ParentId") == album_id])
+            else:
+                self._fill_track_store(all_tracks)
             return
-        filtered = [
-            t for t in getattr(self, "all_tracks", [])
+        self._fill_track_store([
+            t for t in all_tracks
             if query in t.get("Name", "").lower()
             or query in track_artist(t).lower()
             or query in t.get("Album", "").lower()
-        ]
-        self._fill_track_store(filtered)
+        ])
 
     # ── Wiedergabe ──
     def _on_track_activated(self, treeview, path, col):
