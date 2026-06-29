@@ -155,6 +155,11 @@ def save_config(cfg):
 def seconds_to_mmss(s):
     return f"{int(s) // 60}:{int(s) % 60:02d}"
 
+def track_artist(track):
+    return (track.get("AlbumArtist")
+            or (track.get("Artists") or [""])[0]
+            or "")
+
 CD_MAX_SECONDS = 74 * 60  # 74 Minuten Standard-CD
 
 
@@ -221,10 +226,7 @@ class BurnDialog(Gtk.Dialog):
         self.client = client
         self.config = config
         self.cancelled = False
-
-        self.add_button("Abbrechen", Gtk.ResponseType.CANCEL)
-        self.burn_btn = self.add_button("Jetzt brennen", Gtk.ResponseType.OK)
-        self.burn_btn.get_style_context().add_class("suggested-action")
+        self._burning = False
 
         box = self.get_content_area()
         box.set_spacing(8)
@@ -240,7 +242,7 @@ class BurnDialog(Gtk.Dialog):
         tv = Gtk.TextView(editable=False, monospace=True)
         buf = tv.get_buffer()
         lines = "\n".join(
-            f"{i+1:2}. {t.get('AlbumArtist','?')} - {t.get('Name','?')} ({client.format_duration(t.get('RunTimeTicks',0))})"
+            f"{i+1:2}. {track_artist(t) or '?'} - {t.get('Name','?')} ({client.format_duration(t.get('RunTimeTicks',0))})"
             for i, t in enumerate(playlist)
         )
         buf.set_text(lines)
@@ -255,12 +257,37 @@ class BurnDialog(Gtk.Dialog):
         self.progress.set_show_text(True)
         box.pack_start(self.progress, False, False, 0)
 
+        btn_box = Gtk.Box(spacing=8, halign=Gtk.Align.END)
+        btn_box.set_margin_top(4)
+
+        self.cancel_btn = Gtk.Button(label="Abbrechen")
+        self.cancel_btn.connect("clicked", self._on_cancel)
+        btn_box.pack_start(self.cancel_btn, False, False, 0)
+
+        self.burn_btn = Gtk.Button(label="Jetzt brennen")
+        self.burn_btn.get_style_context().add_class("suggested-action")
+        self.burn_btn.connect("clicked", self._on_burn_clicked)
+        btn_box.pack_start(self.burn_btn, False, False, 0)
+
+        box.pack_start(btn_box, False, False, 0)
         self.show_all()
 
-    def start_burn(self):
+    def _on_burn_clicked(self, _):
         self.burn_btn.set_sensitive(False)
+        self.cancel_btn.set_sensitive(False)
+        self._burning = True
         thread = threading.Thread(target=self._burn_thread, daemon=True)
         thread.start()
+
+    def _on_cancel(self, _):
+        if self._burning:
+            self.cancelled = True
+        else:
+            self.response(Gtk.ResponseType.CANCEL)
+
+    def _on_burn_done(self):
+        self.cancel_btn.set_label("Schließen")
+        self.cancel_btn.set_sensitive(True)
 
     def _set_status(self, text):
         GLib.idle_add(self.status_label.set_text, text)
@@ -282,7 +309,7 @@ class BurnDialog(Gtk.Dialog):
                 if self.cancelled:
                     return
                 name = track.get("Name", f"track_{i+1}")
-                artist = track.get("AlbumArtist", "")
+                artist = track_artist(track)
                 self._set_status(f"Lade: {artist} - {name} ({i+1}/{total})")
                 self._set_progress(i / total / 2, f"Download {i+1}/{total}")
 
@@ -347,7 +374,6 @@ class BurnDialog(Gtk.Dialog):
         except Exception as e:
             self._set_status(f"Fehler: {e}")
         finally:
-            # Aufräumen
             for f in wav_files:
                 try:
                     os.unlink(f)
@@ -357,6 +383,7 @@ class BurnDialog(Gtk.Dialog):
                 os.rmdir(tmpdir)
             except:
                 pass
+            GLib.idle_add(self._on_burn_done)
 
 
 # ── Haupt-App ──────────────────────────────────────────────────────────────────
@@ -574,7 +601,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self.track_store.append([
                 t["Id"],
                 t.get("Name", ""),
-                t.get("AlbumArtist", t.get("Artists", [""])[0] if t.get("Artists") else ""),
+                track_artist(t),
                 t.get("Album", ""),
                 self.client.format_duration(t.get("RunTimeTicks", 0)) if self.client else "",
             ])
@@ -588,7 +615,7 @@ class MainWindow(Gtk.ApplicationWindow):
         filtered = [
             t for t in getattr(self, "all_tracks", [])
             if query in t.get("Name", "").lower()
-            or query in t.get("AlbumArtist", "").lower()
+            or query in track_artist(t).lower()
             or query in t.get("Album", "").lower()
         ]
         self._fill_track_store(filtered)
@@ -732,11 +759,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 return
 
         dlg = BurnDialog(self, self.playlist_tracks, self.client, self.config)
-        dlg.show()
-        if dlg.run() == Gtk.ResponseType.OK:
-            dlg.start_burn()
-            # Dialog bleibt offen damit Fortschritt sichtbar ist
-            dlg.run()  # Warten bis User schliesst
+        dlg.run()
         dlg.destroy()
 
 
