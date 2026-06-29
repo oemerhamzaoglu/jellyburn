@@ -460,6 +460,10 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _populate_tracks(self, tracks):
         self.all_tracks = tracks
+        # Access Token nach Login persistieren, damit kein Passwort mehr nötig ist
+        if self.client.api_key and self.client.api_key != self.config.get("api_key"):
+            self.config["api_key"] = self.client.api_key
+            save_config({k: v for k, v in self.config.items() if k != "password"})
         self._fill_artist_store()
         self._fill_track_store(tracks)
         self.lib_status.set_text(f"{len(tracks)} Tracks geladen")
