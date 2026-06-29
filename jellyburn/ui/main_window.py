@@ -152,13 +152,25 @@ class MainWindow(Gtk.ApplicationWindow):
             font-size: 11px;
             color: #7070a0;
         }
-        progressbar.playback trough {
-            background-color: #1e1e30;
-            min-height: 3px;
+        scale.playback trough {
+            background-color: #2a2a40;
+            min-height: 4px;
+            border-radius: 2px;
         }
-        progressbar.playback progress {
+        scale.playback highlight {
             background-color: #e94560;
-            min-height: 3px;
+            min-height: 4px;
+            border-radius: 2px;
+        }
+        scale.playback slider {
+            background-color: #e94560;
+            border: none;
+            border-radius: 50%;
+            min-width: 12px;
+            min-height: 12px;
+        }
+        scale.playback slider:hover {
+            background-color: #ff6080;
         }
         .art-placeholder {
             background-color: #1e1e30;
@@ -370,8 +382,15 @@ class MainWindow(Gtk.ApplicationWindow):
         np_ctrl.pack_start(self.btn_stop, False, False, 0)
         np_ctrl.pack_start(self.np_time, False, False, 4)
 
-        self.np_progress = Gtk.ProgressBar()
+        self.np_progress = Gtk.Scale.new(Gtk.Orientation.HORIZONTAL, None)
+        self.np_progress.set_draw_value(False)
+        self.np_progress.set_range(0, 1)
+        self.np_progress.set_value(0)
         self.np_progress.get_style_context().add_class("playback")
+        self.np_progress.connect("button-press-event", self._on_scrub_start)
+        self.np_progress.connect("button-release-event", self._on_scrub_end)
+        self._scrubbing = False
+        self._total_seconds = 0
 
         np_info.pack_start(self.np_title, False, False, 0)
         np_info.pack_start(self.np_sub, False, False, 0)
@@ -547,16 +566,19 @@ class MainWindow(Gtk.ApplicationWindow):
         self.np_title.set_text(title)
         self.np_sub.set_text(artist)
         self.np_time.set_text("")
-        self.np_progress.set_fraction(0)
+        self.np_progress.set_value(0)
 
         if track and self.client:
             threading.Thread(target=self._load_art, args=(track["Id"],), daemon=True).start()
         else:
             GLib.idle_add(self.art_image.clear)
 
-        def on_progress(fraction, time_str):
-            GLib.idle_add(self.np_progress.set_fraction, fraction)
+        def on_progress(fraction, time_str, elapsed, total):
+            self._total_seconds = total
             GLib.idle_add(self.np_time.set_text, time_str)
+            if not self._scrubbing:
+                GLib.idle_add(self.np_progress.set_range, 0, max(total, 1))
+                GLib.idle_add(self.np_progress.set_value, elapsed)
 
         def on_error(msg):
             GLib.idle_add(self.np_title.set_text, msg)
@@ -567,6 +589,14 @@ class MainWindow(Gtk.ApplicationWindow):
             on_progress=on_progress,
             on_error=on_error,
         )
+
+    def _on_scrub_start(self, widget, event):
+        self._scrubbing = True
+
+    def _on_scrub_end(self, widget, event):
+        self._scrubbing = False
+        if self.player.is_playing:
+            self.player.seek(widget.get_value())
 
     def _load_art(self, item_id):
         try:
@@ -588,7 +618,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.np_title.set_text("")
         self.np_sub.set_text("")
         self.np_time.set_text("")
-        self.np_progress.set_fraction(0)
+        self.np_progress.set_value(0)
         self.art_image.clear()
 
     # ── Playlist ──
