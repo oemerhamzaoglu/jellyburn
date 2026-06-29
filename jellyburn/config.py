@@ -1,0 +1,45 @@
+import json
+import os
+import subprocess
+
+
+REQUIRED_TOOLS = {
+    "mpv":    "Wiedergabe (mpv)",
+    "ffmpeg": "Audio-Konvertierung (ffmpeg)",
+    "wodim":  "CD-Brennen (wodim)",
+}
+
+CONFIG_FILE = os.path.expanduser("~/.config/jellyburn.json")
+
+DEFAULT_CONFIG = {
+    "server_url": "",
+    "username": "",
+    "api_key": "",
+    "cd_device": "/dev/sr0",
+    "burn_speed": 4,
+}
+
+CD_MAX_SECONDS = 74 * 60
+
+
+def check_dependencies():
+    return [label for cmd, label in REQUIRED_TOOLS.items()
+            if subprocess.run(["which", cmd], capture_output=True).returncode != 0]
+
+
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE) as f:
+            cfg = json.load(f)
+        return {**DEFAULT_CONFIG, **cfg}
+    return dict(DEFAULT_CONFIG)
+
+
+def save_config(cfg):
+    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(cfg, f, indent=2)
+
+
+def seconds_to_mmss(s):
+    return f"{int(s) // 60}:{int(s) % 60:02d}"
