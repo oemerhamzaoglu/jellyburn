@@ -439,7 +439,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.config = load_config()
         self.client = None
         self.current_player = None
-        self.playlist_tracks = []  # Liste der Track-Dicts in der Playlist
+        self._current_track = None
+        self.playlist_tracks = []
         self._build_ui()
         self._apply_css()
 
@@ -447,26 +448,178 @@ class MainWindow(Gtk.ApplicationWindow):
             self._connect()
 
     def _apply_css(self):
-        css = b"""
-        .sidebar { background-color: #1a1a2e; color: #e0e0e0; }
-        .playlist-area { background-color: #16213e; }
-        .track-row:hover { background-color: #0f3460; }
-        .burn-btn { background-color: #e94560; color: white; border-radius: 4px; }
+        css = """
+        /* ── Base ── */
+        window, .main-box {
+            background-color: #12121a;
+            color: #d8d8e0;
+        }
+
+        /* ── HeaderBar ── */
+        headerbar, headerbar * {
+            background-color: #1a1a2e;
+            border-bottom: 1px solid #0a0a14;
+            color: #d8d8e0;
+        }
+        headerbar button {
+            background: transparent;
+            border: none;
+            color: #9090b0;
+            padding: 4px 6px;
+        }
+        headerbar button:hover { color: #e94560; }
+
+        /* ── Search ── */
+        searchentry {
+            background-color: #1e1e30;
+            border: 1px solid #2a2a40;
+            border-radius: 4px;
+            color: #d8d8e0;
+            padding: 4px 8px;
+        }
+        searchentry:focus { border-color: #e94560; }
+
+        /* ── Library TreeView ── */
+        treeview {
+            background-color: #12121a;
+            color: #d8d8e0;
+        }
+        treeview:selected {
+            background-color: #e94560;
+            color: #ffffff;
+        }
+        treeview header button {
+            background-color: #1a1a2e;
+            color: #7070a0;
+            border-bottom: 1px solid #0a0a14;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 3px 6px;
+        }
+
+        /* ── Separators ── */
+        separator { background-color: #222236; }
+
+        /* ── Status label ── */
+        .lib-status {
+            font-size: 11px;
+            color: #6060a0;
+            padding: 2px 6px;
+        }
+
+        /* ── Playlist panel ── */
+        .panel-right {
+            background-color: #16162a;
+            border-left: 1px solid #222236;
+        }
+        .panel-right treeview { background-color: #16162a; }
+
+        /* ── CD capacity bar ── */
+        .cd-counter {
+            font-family: monospace;
+            font-size: 12px;
+            color: #7070a0;
+            padding: 0 8px;
+        }
+        .cd-counter.over-limit { color: #e94560; font-weight: bold; }
+        progressbar trough {
+            background-color: #1e1e30;
+            border-radius: 3px;
+            min-height: 6px;
+        }
+        progressbar progress {
+            background-color: #3dc47e;
+            border-radius: 3px;
+            min-height: 6px;
+        }
+        progressbar.cd-yellow progress { background-color: #e8a838; }
+        progressbar.cd-red    progress { background-color: #e94560; }
+
+        /* ── Buttons (general) ── */
+        button {
+            background-color: #1e1e30;
+            border: 1px solid #2a2a40;
+            border-radius: 3px;
+            color: #d8d8e0;
+            padding: 4px 10px;
+        }
+        button:hover {
+            background-color: #2a2a40;
+            border-color: #e94560;
+        }
+
+        /* ── Add-to-playlist button ── */
+        .add-btn {
+            background-color: #1e1e30;
+            border: 1px solid #2a2a40;
+            color: #9090b0;
+            font-size: 12px;
+        }
+        .add-btn:hover { border-color: #e94560; color: #e94560; }
+
+        /* ── Burn button ── */
+        .burn-btn {
+            background-color: #e94560;
+            border: none;
+            border-radius: 4px;
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 13px;
+            padding: 8px 0;
+            letter-spacing: 0.04em;
+        }
         .burn-btn:hover { background-color: #c73652; }
-        .header-bar { background-color: #0f3460; }
-        label.track-title { font-weight: bold; }
-        .cd-counter { font-family: monospace; font-size: 14px; color: #e94560; }
+        .burn-btn:disabled { background-color: #2a2a40; color: #5050a0; }
+
+        /* ── Now Playing ── */
+        .now-playing-box {
+            background-color: #1a1a2e;
+            border-top: 1px solid #222236;
+            padding: 8px;
+        }
+        .now-playing-title {
+            font-weight: bold;
+            font-size: 13px;
+            color: #d8d8e0;
+        }
+        .now-playing-sub {
+            font-size: 11px;
+            color: #7070a0;
+        }
+        progressbar.playback trough {
+            background-color: #1e1e30;
+            min-height: 3px;
+        }
+        progressbar.playback progress {
+            background-color: #e94560;
+            min-height: 3px;
+        }
+
+        /* ── Album art placeholder ── */
+        .art-placeholder {
+            background-color: #1e1e30;
+            border: 1px solid #2a2a40;
+            border-radius: 3px;
+            color: #3a3a60;
+            font-size: 32px;
+        }
+
+        /* ── Dialogs ── */
+        dialog { background-color: #1a1a2e; }
+        dialog .dialog-action-area button { font-size: 12px; }
         """
         provider = Gtk.CssProvider()
-        provider.load_from_data(css)
+        provider.load_from_data(css.encode() if isinstance(css, str) else css)
         Gtk.StyleContext.add_provider_for_screen(
             self.get_screen(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
     def _build_ui(self):
-        # Header
+        # ── HeaderBar ──────────────────────────────────────────────────────────
         header = Gtk.HeaderBar(show_close_button=True)
         header.set_title("Jellyburn")
+        header.set_subtitle("Jellyfin → CD")
         self.set_titlebar(header)
 
         btn_settings = Gtk.Button.new_from_icon_name("preferences-system-symbolic", Gtk.IconSize.BUTTON)
@@ -479,140 +632,177 @@ class MainWindow(Gtk.ApplicationWindow):
         btn_connect.connect("clicked", lambda _: self._connect())
         header.pack_end(btn_connect)
 
-        # Haupt-Layout
-        main_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        self.add(main_box)
+        # ── Haupt-Layout: Paned für responsives Resize ──────────────────────
+        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        paned.set_position(520)
+        self.add(paned)
 
-        # Linke Seite: Bibliothek
-        left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, width_request=420)
-        main_box.pack_start(left, True, True, 0)
+        # ══ Linke Seite: Bibliothek ══════════════════════════════════════════
+        left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 
-        # Suche
         search_box = Gtk.Box(spacing=6, margin=8)
-        self.search_entry = Gtk.SearchEntry(placeholder_text="Künstler, Album oder Titel suchen...")
+        self.search_entry = Gtk.SearchEntry(placeholder_text="Künstler, Album oder Titel suchen…")
         self.search_entry.connect("search-changed", self._on_search)
         search_box.pack_start(self.search_entry, True, True, 0)
         left.pack_start(search_box, False, False, 0)
-
         left.pack_start(Gtk.Separator(), False, False, 0)
 
         # Track-Liste
         sw = Gtk.ScrolledWindow()
         sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        # cols: 0=Id  1=Titel  2=Künstler  3=Album  4=Dauer
         self.track_store = Gtk.ListStore(str, str, str, str, str)
-        # Spalten: Id, Titel, Künstler, Album, Dauer
-
         self.track_view = Gtk.TreeView(model=self.track_store, headers_visible=True)
         self.track_view.set_activate_on_single_click(False)
+        self.track_view.set_rules_hint(True)
 
-        for i, (title, col) in enumerate([("Titel", 1), ("Künstler", 2), ("Album", 3), ("Länge", 4)]):
-            renderer = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
-            col_obj = Gtk.TreeViewColumn(title, renderer, text=col)
-            col_obj.set_resizable(True)
-            if i < 3:
-                col_obj.set_expand(True)
-            self.track_view.append_column(col_obj)
+        for title, col, expand in [("Titel", 1, True), ("Künstler", 2, True),
+                                    ("Album", 3, True), ("Länge", 4, False)]:
+            rend = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
+            c = Gtk.TreeViewColumn(title, rend, text=col)
+            c.set_resizable(True)
+            c.set_expand(expand)
+            self.track_view.append_column(c)
 
         self.track_view.get_selection().set_mode(Gtk.SelectionMode.MULTIPLE)
         self.track_view.connect("row-activated", self._on_track_activated)
-
         sw.add(self.track_view)
         left.pack_start(sw, True, True, 0)
 
-        # Statusleiste Bibliothek
         self.lib_status = Gtk.Label(label="Nicht verbunden", xalign=0, margin=4)
+        self.lib_status.get_style_context().add_class("lib-status")
         left.pack_start(self.lib_status, False, False, 0)
 
-        # Trennlinie
-        main_box.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 0)
+        paned.pack1(left, resize=True, shrink=False)
 
-        # Rechte Seite: Playlist + Player
-        right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, width_request=360)
-        main_box.pack_start(right, False, False, 0)
+        # ══ Rechte Seite: Playlist + Now Playing + Burn ══════════════════════
+        right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        right.get_style_context().add_class("panel-right")
 
-        # Playlist-Header
-        pl_header = Gtk.Box(spacing=6, margin=8)
-        pl_label = Gtk.Label(label="<b>Playlist</b>", use_markup=True, xalign=0)
+        # ── Playlist-Header ────────────────────────────────────────────────
+        pl_header = Gtk.Box(spacing=4, margin=8)
+        pl_label = Gtk.Label(xalign=0)
+        pl_label.set_markup('<span font_desc="11" weight="bold" color="#9090b0">PLAYLIST</span>')
         pl_header.pack_start(pl_label, True, True, 0)
 
-        btn_load = Gtk.Button.new_from_icon_name("document-open-symbolic", Gtk.IconSize.BUTTON)
-        btn_load.set_tooltip_text("Playlist laden")
-        btn_load.connect("clicked", self._load_playlist)
-        pl_header.pack_start(btn_load, False, False, 0)
-
-        btn_save = Gtk.Button.new_from_icon_name("document-save-symbolic", Gtk.IconSize.BUTTON)
-        btn_save.set_tooltip_text("Playlist speichern")
-        btn_save.connect("clicked", self._save_playlist)
-        pl_header.pack_start(btn_save, False, False, 0)
+        for icon, tip, cb in [
+            ("document-open-symbolic",  "Playlist laden",      self._load_playlist),
+            ("document-save-symbolic",  "Playlist speichern",  self._save_playlist),
+        ]:
+            b = Gtk.Button.new_from_icon_name(icon, Gtk.IconSize.SMALL_TOOLBAR)
+            b.set_tooltip_text(tip)
+            b.connect("clicked", cb)
+            pl_header.pack_start(b, False, False, 0)
 
         btn_clear = Gtk.Button(label="Leeren")
         btn_clear.connect("clicked", self._clear_playlist)
         pl_header.pack_start(btn_clear, False, False, 0)
-
         right.pack_start(pl_header, False, False, 0)
 
-        # CD-Kapazitatsanzeige
-        self.cd_counter = Gtk.Label(label="0:00 / 74:00", xalign=0, margin_start=8)
+        # ── CD-Kapazitätsanzeige ───────────────────────────────────────────
+        cd_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL,
+                         margin_start=8, margin_end=8, margin_bottom=4, spacing=2)
+        self.cd_counter = Gtk.Label(label="0:00 / 74:00", xalign=0)
         self.cd_counter.get_style_context().add_class("cd-counter")
         self.cd_bar = Gtk.ProgressBar()
-        self.cd_bar.set_margin_start(8)
-        self.cd_bar.set_margin_end(8)
-        right.pack_start(self.cd_counter, False, False, 0)
-        right.pack_start(self.cd_bar, False, False, 2)
-
+        self.cd_bar.get_style_context().add_class("cd-bar")
+        cd_box.pack_start(self.cd_counter, False, False, 0)
+        cd_box.pack_start(self.cd_bar, False, False, 0)
+        right.pack_start(cd_box, False, False, 0)
         right.pack_start(Gtk.Separator(), False, False, 0)
 
-        # Playlist-Liste
+        # ── Playlist-Liste (mit Tracknummer) ───────────────────────────────
         sw2 = Gtk.ScrolledWindow()
-        self.pl_store = Gtk.ListStore(str, str, str, str)
-        # Id, Titel, Künstler, Dauer
-
+        # cols: 0=Id  1=#  2=Titel  3=Künstler  4=Dauer
+        self.pl_store = Gtk.ListStore(str, str, str, str, str)
         self.pl_view = Gtk.TreeView(model=self.pl_store, headers_visible=False)
+        self.pl_view.set_rules_hint(True)
         self.pl_view.get_selection().set_mode(Gtk.SelectionMode.MULTIPLE)
 
-        for i, col in enumerate([1, 2, 3]):
-            renderer = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
-            c = Gtk.TreeViewColumn("", renderer, text=col)
-            if i < 2:
-                c.set_expand(True)
+        rend_num = Gtk.CellRendererText(xalign=1.0)
+        rend_num.set_property("foreground", "#5050a0")
+        col_num = Gtk.TreeViewColumn("", rend_num, text=1)
+        col_num.set_min_width(28)
+        self.pl_view.append_column(col_num)
+
+        for col_idx, expand in [(2, True), (3, True), (4, False)]:
+            r = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
+            c = Gtk.TreeViewColumn("", r, text=col_idx)
+            c.set_expand(expand)
             self.pl_view.append_column(c)
 
-        # Kontextmenu Playlist
         self.pl_view.connect("button-press-event", self._on_pl_right_click)
         sw2.add(self.pl_view)
         right.pack_start(sw2, True, True, 0)
 
-        # "Zur Playlist hinzufügen" Button
-        btn_add = Gtk.Button(label="+ Auswahl zur Playlist hinzufügen")
+        btn_add = Gtk.Button(label="+ Auswahl hinzufügen")
         btn_add.set_margin_start(8)
         btn_add.set_margin_end(8)
         btn_add.set_margin_top(4)
+        btn_add.get_style_context().add_class("add-btn")
         btn_add.connect("clicked", self._add_selected_to_playlist)
         right.pack_start(btn_add, False, False, 0)
 
         right.pack_start(Gtk.Separator(), False, False, 4)
 
-        # Player Controls
-        player_box = Gtk.Box(spacing=4, margin=8)
+        # ── Now Playing ────────────────────────────────────────────────────
+        np_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10, margin=8)
+        np_box.get_style_context().add_class("now-playing-box")
+
+        # Album Art
+        self.art_image = Gtk.Image()
+        self.art_image.set_size_request(56, 56)
+        self.art_image.get_style_context().add_class("art-placeholder")
+        self._art_pixbuf = None
+        np_box.pack_start(self.art_image, False, False, 0)
+
+        # Titel + Fortschritt
+        np_info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        np_info.set_valign(Gtk.Align.CENTER)
+
+        self.np_title = Gtk.Label(label="", xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.np_title.get_style_context().add_class("now-playing-title")
+
+        self.np_sub = Gtk.Label(label="", xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.np_sub.get_style_context().add_class("now-playing-sub")
+
+        np_ctrl = Gtk.Box(spacing=4)
         self.btn_play = Gtk.Button.new_from_icon_name("media-playback-start-symbolic", Gtk.IconSize.BUTTON)
         self.btn_play.connect("clicked", self._play_selected)
         self.btn_stop = Gtk.Button.new_from_icon_name("media-playback-stop-symbolic", Gtk.IconSize.BUTTON)
         self.btn_stop.connect("clicked", self._stop_playback)
-        self.now_playing = Gtk.Label(label="", xalign=0, ellipsize=Pango.EllipsizeMode.END)
-        player_box.pack_start(self.btn_play, False, False, 0)
-        player_box.pack_start(self.btn_stop, False, False, 0)
-        player_box.pack_start(self.now_playing, True, True, 0)
-        right.pack_start(player_box, False, False, 0)
+        self.np_time = Gtk.Label(label="", xalign=0)
+        self.np_time.get_style_context().add_class("now-playing-sub")
+        np_ctrl.pack_start(self.btn_play, False, False, 0)
+        np_ctrl.pack_start(self.btn_stop, False, False, 0)
+        np_ctrl.pack_start(self.np_time, False, False, 4)
 
-        # Brennen-Button
-        self.burn_btn = Gtk.Button(label="CD brennen")
+        self.np_progress = Gtk.ProgressBar()
+        self.np_progress.get_style_context().add_class("playback")
+
+        np_info.pack_start(self.np_title, False, False, 0)
+        np_info.pack_start(self.np_sub, False, False, 0)
+        np_info.pack_start(np_ctrl, False, False, 0)
+        np_info.pack_start(self.np_progress, False, False, 0)
+        np_box.pack_start(np_info, True, True, 0)
+
+        # compat alias used in old play_url / stop_playback
+        self.now_playing = self.np_title
+
+        right.pack_start(np_box, False, False, 0)
+
+        # ── Brennen-Button ─────────────────────────────────────────────────
+        self.burn_btn = Gtk.Button(label="● CD BRENNEN")
         self.burn_btn.set_margin_start(8)
         self.burn_btn.set_margin_end(8)
         self.burn_btn.set_margin_bottom(8)
+        self.burn_btn.set_margin_top(4)
         self.burn_btn.get_style_context().add_class("burn-btn")
         self.burn_btn.connect("clicked", self._start_burn)
         self.burn_btn.set_sensitive(False)
         right.pack_start(self.burn_btn, False, False, 0)
+
+        paned.pack2(right, resize=False, shrink=False)
 
     # ── Verbindung ─────────────────────────────────────────────────────────────
     def _connect(self):
@@ -682,49 +872,95 @@ class MainWindow(Gtk.ApplicationWindow):
         model = treeview.get_model()
         row = model[path]
         track_id = row[0]
-        name = row[1]
-        artist = row[2]
         if not self.client:
             return
+        track = next((t for t in getattr(self, "all_tracks", []) if t["Id"] == track_id), None)
         url = self.client.get_stream_url(track_id)
-        self._play_url(url, f"{artist} - {name}")
+        self._play_url(url, f"{row[2]} - {row[1]}", track=track)
 
     def _play_selected(self, _):
         sel = self.track_view.get_selection()
         model, paths = sel.get_selected_rows()
         if not paths:
-            # aus Playlist spielen
             sel2 = self.pl_view.get_selection()
             model2, paths2 = sel2.get_selected_rows()
             if paths2 and self.client:
                 row = model2[paths2[0]]
                 track_id = row[0]
-                # Finde Original-Track
                 track = next((t for t in self.playlist_tracks if t["Id"] == track_id), None)
                 if track:
                     url = self.client.get_stream_url(track_id)
-                    self._play_url(url, f"{row[2]} - {row[1]}")
+                    self._play_url(url, f"{row[3]} - {row[2]}", track=track)
             return
         row = model[paths[0]]
         if not self.client:
             return
+        track = next((t for t in getattr(self, "all_tracks", []) if t["Id"] == row[0]), None)
         url = self.client.get_stream_url(row[0])
-        self._play_url(url, f"{row[2]} - {row[1]}")
+        self._play_url(url, f"{row[2]} - {row[1]}", track=track)
 
-    def _play_url(self, url, label):
+    def _play_url(self, url, label, track=None):
         self._stop_playback(None)
-        self.now_playing.set_text(f"▶ {label}")
+        parts = label.split(" - ", 1)
+        artist = parts[0] if len(parts) == 2 else ""
+        title = parts[1] if len(parts) == 2 else label
+        self.np_title.set_text(title)
+        self.np_sub.set_text(artist)
+        self.np_time.set_text("")
+        self.np_progress.set_fraction(0)
+        # Album Art laden
+        if track and self.client:
+            threading.Thread(target=self._load_art, args=(track["Id"],), daemon=True).start()
+        else:
+            GLib.idle_add(self.art_image.clear)
         cmd = ["mpv", "--no-video", "--really-quiet", url]
         try:
             self.current_player = subprocess.Popen(cmd)
+            self._current_track = track
+            threading.Thread(target=self._track_playback, args=(track,), daemon=True).start()
         except FileNotFoundError:
-            self.now_playing.set_text("mpv nicht gefunden - bitte installieren")
+            self.np_title.set_text("mpv nicht gefunden")
+            self.np_sub.set_text("Bitte mpv installieren")
+
+    def _track_playback(self, track):
+        if not track:
+            return
+        total = self.client.ticks_to_seconds(track.get("RunTimeTicks", 0)) if self.client else 0
+        start = time.monotonic()
+        while self.current_player and self.current_player.poll() is None:
+            elapsed = time.monotonic() - start
+            fraction = min(elapsed / total, 1.0) if total else 0
+            time_str = f"{seconds_to_mmss(elapsed)}" + (f" / {seconds_to_mmss(total)}" if total else "")
+            GLib.idle_add(self.np_progress.set_fraction, fraction)
+            GLib.idle_add(self.np_time.set_text, time_str)
+            time.sleep(0.5)
+
+    def _load_art(self, item_id):
+        try:
+            url = (f"{self.client.server_url}/Items/{item_id}/Images/Primary"
+                   f"?fillHeight=56&fillWidth=56&quality=80&api_key={self.client.api_key}")
+            resp = self.client.session.get(url, timeout=8)
+            if resp.status_code == 200:
+                loader = GdkPixbuf.PixbufLoader()
+                loader.write(resp.content)
+                loader.close()
+                pixbuf = loader.get_pixbuf()
+                GLib.idle_add(self.art_image.set_from_pixbuf, pixbuf)
+                return
+        except Exception:
+            pass
+        GLib.idle_add(self.art_image.clear)
 
     def _stop_playback(self, _):
         if self.current_player:
             self.current_player.terminate()
             self.current_player = None
-        self.now_playing.set_text("")
+        self._current_track = None
+        self.np_title.set_text("")
+        self.np_sub.set_text("")
+        self.np_time.set_text("")
+        self.np_progress.set_fraction(0)
+        self.art_image.clear()
 
     # ── Playlist ───────────────────────────────────────────────────────────────
     def _add_selected_to_playlist(self, _):
@@ -733,19 +969,13 @@ class MainWindow(Gtk.ApplicationWindow):
         for path in paths:
             row = model[path]
             track_id = row[0]
-            # Duplikat-Check
             if any(t["Id"] == track_id for t in self.playlist_tracks):
                 continue
-            # Original-Track-Dict finden
             track = next((t for t in getattr(self, "all_tracks", []) if t["Id"] == track_id), None)
             if track:
                 self.playlist_tracks.append(track)
-                self.pl_store.append([
-                    track_id,
-                    row[1],
-                    row[2],
-                    row[4],
-                ])
+                num = str(len(self.playlist_tracks))
+                self.pl_store.append([track_id, num, row[1], row[2], row[4]])
         self._update_cd_counter()
 
     def _on_track_activated_pl(self, treeview, path, col):
@@ -763,13 +993,16 @@ class MainWindow(Gtk.ApplicationWindow):
     def _remove_from_playlist(self, _):
         sel = self.pl_view.get_selection()
         model, paths = sel.get_selected_rows()
-        # Rueckwarts loeschen um Indizes zu erhalten
         for path in reversed(paths):
-            row = model[path]
-            track_id = row[0]
+            track_id = model[path][0]
             self.playlist_tracks = [t for t in self.playlist_tracks if t["Id"] != track_id]
             model.remove(model.get_iter(path))
+        self._renumber_playlist()
         self._update_cd_counter()
+
+    def _renumber_playlist(self):
+        for i, row in enumerate(self.pl_store):
+            row[1] = str(i + 1)
 
     def _clear_playlist(self, _):
         self.playlist_tracks = []
@@ -825,12 +1058,10 @@ class MainWindow(Gtk.ApplicationWindow):
                     if any(t["Id"] == track["Id"] for t in self.playlist_tracks):
                         continue
                     self.playlist_tracks.append(track)
-                    self.pl_store.append([
-                        track["Id"],
-                        track.get("Name", ""),
-                        track_artist(track),
-                        self.client.format_duration(track.get("RunTimeTicks", 0)) if self.client else "",
-                    ])
+                    num = str(len(self.playlist_tracks))
+                    dur = self.client.format_duration(track.get("RunTimeTicks", 0)) if self.client else ""
+                    self.pl_store.append([track["Id"], num, track.get("Name", ""),
+                                          track_artist(track), dur])
                 self._update_cd_counter()
             except (OSError, json.JSONDecodeError, ValueError) as e:
                 self._show_error(f"Laden fehlgeschlagen: {e}")
@@ -852,10 +1083,24 @@ class MainWindow(Gtk.ApplicationWindow):
             for t in self.playlist_tracks
         ) if self.client else 0
         fraction = min(total_s / CD_MAX_SECONDS, 1.0)
-        self.cd_counter.set_text(f"{seconds_to_mmss(total_s)} / 74:00")
         self.cd_bar.set_fraction(fraction)
+
+        ctx = self.cd_bar.get_style_context()
+        ctx.remove_class("cd-yellow")
+        ctx.remove_class("cd-red")
+        ctr_ctx = self.cd_counter.get_style_context()
+        ctr_ctx.remove_class("over-limit")
+
         if total_s > CD_MAX_SECONDS:
-            self.cd_counter.set_markup(f'<span color="red"><b>{seconds_to_mmss(total_s)} / 74:00 - ZU LANG!</b></span>')
+            ctx.add_class("cd-red")
+            ctr_ctx.add_class("over-limit")
+            self.cd_counter.set_text(f"{seconds_to_mmss(total_s)} / 74:00  ⚠ ZU LANG")
+        elif fraction > 0.85:
+            ctx.add_class("cd-yellow")
+            self.cd_counter.set_text(f"{seconds_to_mmss(total_s)} / 74:00")
+        else:
+            self.cd_counter.set_text(f"{seconds_to_mmss(total_s)} / 74:00")
+
         self.burn_btn.set_sensitive(len(self.playlist_tracks) > 0)
 
     # ── Einstellungen ──────────────────────────────────────────────────────────
