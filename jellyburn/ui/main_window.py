@@ -28,8 +28,13 @@ class MainWindow(Gtk.ApplicationWindow):
         self._build_ui()
         self._apply_css()
 
+        self.connect("delete-event", self._on_close)
+
         if self.config.get("server_url"):
             self._connect()
+
+    def _on_close(self, *_):
+        self.player.stop()
 
     def _apply_css(self):
         css = """
