@@ -295,6 +295,10 @@ class MainWindow(Gtk.ApplicationWindow):
 
         left.pack_start(vpaned, True, True, 0)
 
+        self.load_bar = Gtk.ProgressBar()
+        self.load_bar.set_no_show_all(True)
+        left.pack_start(self.load_bar, False, False, 0)
+
         self.lib_status = Gtk.Label(label="Nicht verbunden", xalign=0, margin=4)
         self.lib_status.get_style_context().add_class("lib-status")
         left.pack_start(self.lib_status, False, False, 0)
@@ -433,7 +437,12 @@ class MainWindow(Gtk.ApplicationWindow):
         if not self.config.get("server_url"):
             self._open_settings(None)
             return
-        self.lib_status.set_text("Verbinde...")
+        self.track_store.clear()
+        self.artist_store.clear()
+        self.album_store.clear()
+        self.load_bar.set_fraction(0)
+        self.load_bar.show()
+        self.lib_status.set_text("Verbinde…")
         threading.Thread(target=self._connect_thread, daemon=True).start()
 
     def _connect_thread(self):
@@ -444,28 +453,50 @@ class MainWindow(Gtk.ApplicationWindow):
                 username=self.config.get("username") or None,
                 password=self.config.get("password") or None,
             )
-            tracks = self.client.search_music()
-            GLib.idle_add(self._populate_tracks, tracks)
+            all_tracks = []
+
+            def on_page(page, loaded, total):
+                all_tracks.extend(page)
+                fraction = loaded / total if total else 0
+                GLib.idle_add(self._on_load_page, list(page), loaded, total, fraction)
+
+            self.client.search_music(on_page=on_page)
+            GLib.idle_add(self._populate_tracks, all_tracks)
         except requests.exceptions.ConnectionError:
+            GLib.idle_add(self.load_bar.hide)
             GLib.idle_add(self.lib_status.set_text,
                           "Verbindung fehlgeschlagen – Server erreichbar?")
         except requests.exceptions.Timeout:
+            GLib.idle_add(self.load_bar.hide)
             GLib.idle_add(self.lib_status.set_text, "Timeout – Server antwortet nicht.")
         except requests.exceptions.HTTPError as e:
             code = e.response.status_code if e.response is not None else "?"
             msg = "Ungültige Zugangsdaten." if code == 401 else f"HTTP {code}"
+            GLib.idle_add(self.load_bar.hide)
             GLib.idle_add(self.lib_status.set_text, msg)
         except Exception as e:
+            GLib.idle_add(self.load_bar.hide)
             GLib.idle_add(self.lib_status.set_text, f"Fehler: {e}")
+
+    def _on_load_page(self, page, loaded, total, fraction):
+        self.load_bar.set_fraction(fraction)
+        self.lib_status.set_text(f"Lade… {loaded} / {total}")
+        if not self.client:
+            return
+        for t in page:
+            self.track_store.append([
+                t["Id"], t.get("Name", ""), track_artist(t),
+                t.get("Album", ""),
+                self.client.format_duration(t.get("RunTimeTicks", 0)),
+            ])
 
     def _populate_tracks(self, tracks):
         self.all_tracks = tracks
-        # Access Token nach Login persistieren, damit kein Passwort mehr nötig ist
+        self.load_bar.hide()
         if self.client.api_key and self.client.api_key != self.config.get("api_key"):
             self.config["api_key"] = self.client.api_key
             save_config({k: v for k, v in self.config.items() if k != "password"})
         self._fill_artist_store()
-        self._fill_track_store(tracks)
         self.lib_status.set_text(f"{len(tracks)} Tracks geladen")
 
     def _fill_artist_store(self):

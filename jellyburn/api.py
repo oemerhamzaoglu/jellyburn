@@ -47,7 +47,7 @@ class JellyfinClient:
         self.user_id = resp.json()["Id"]
         return self.user_id
 
-    def search_music(self, query=""):
+    def search_music(self, query="", on_page=None):
         uid = self.get_user_id()
         params = {
             "IncludeItemTypes": "Audio",
@@ -63,16 +63,20 @@ class JellyfinClient:
             resp.raise_for_status()
             return resp.json().get("Items", [])
 
-        # Alle Tracks seitenweise laden
         all_items = []
+        total = None
         while True:
             params["StartIndex"] = len(all_items)
             resp = self.session.get(f"{self.server_url}/Items", params=params)
             resp.raise_for_status()
             data = resp.json()
+            if total is None:
+                total = data.get("TotalRecordCount", 0)
             page = data.get("Items", [])
             all_items.extend(page)
-            if len(all_items) >= data.get("TotalRecordCount", 0) or not page:
+            if on_page:
+                on_page(page, len(all_items), total)
+            if len(all_items) >= total or not page:
                 break
         return all_items
 
