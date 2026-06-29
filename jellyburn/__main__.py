@@ -535,6 +535,16 @@ class MainWindow(Gtk.ApplicationWindow):
         pl_label = Gtk.Label(label="<b>Playlist</b>", use_markup=True, xalign=0)
         pl_header.pack_start(pl_label, True, True, 0)
 
+        btn_load = Gtk.Button.new_from_icon_name("document-open-symbolic", Gtk.IconSize.BUTTON)
+        btn_load.set_tooltip_text("Playlist laden")
+        btn_load.connect("clicked", self._load_playlist)
+        pl_header.pack_start(btn_load, False, False, 0)
+
+        btn_save = Gtk.Button.new_from_icon_name("document-save-symbolic", Gtk.IconSize.BUTTON)
+        btn_save.set_tooltip_text("Playlist speichern")
+        btn_save.connect("clicked", self._save_playlist)
+        pl_header.pack_start(btn_save, False, False, 0)
+
         btn_clear = Gtk.Button(label="Leeren")
         btn_clear.connect("clicked", self._clear_playlist)
         pl_header.pack_start(btn_clear, False, False, 0)
@@ -765,6 +775,76 @@ class MainWindow(Gtk.ApplicationWindow):
         self.playlist_tracks = []
         self.pl_store.clear()
         self._update_cd_counter()
+
+    def _save_playlist(self, _):
+        if not self.playlist_tracks:
+            return
+        dlg = Gtk.FileChooserDialog(
+            title="Playlist speichern", transient_for=self,
+            action=Gtk.FileChooserAction.SAVE,
+        )
+        dlg.add_buttons("Abbrechen", Gtk.ResponseType.CANCEL, "Speichern", Gtk.ResponseType.OK)
+        dlg.set_current_name("playlist.json")
+        dlg.set_do_overwrite_confirmation(True)
+        ff = Gtk.FileFilter()
+        ff.set_name("JSON-Dateien")
+        ff.add_pattern("*.json")
+        dlg.add_filter(ff)
+        if dlg.run() == Gtk.ResponseType.OK:
+            path = dlg.get_filename()
+            if not path.endswith(".json"):
+                path += ".json"
+            try:
+                with open(path, "w") as f:
+                    json.dump(self.playlist_tracks, f, indent=2)
+            except OSError as e:
+                self._show_error(f"Speichern fehlgeschlagen: {e}")
+        dlg.destroy()
+
+    def _load_playlist(self, _):
+        dlg = Gtk.FileChooserDialog(
+            title="Playlist laden", transient_for=self,
+            action=Gtk.FileChooserAction.OPEN,
+        )
+        dlg.add_buttons("Abbrechen", Gtk.ResponseType.CANCEL, "Öffnen", Gtk.ResponseType.OK)
+        ff = Gtk.FileFilter()
+        ff.set_name("JSON-Dateien")
+        ff.add_pattern("*.json")
+        dlg.add_filter(ff)
+        if dlg.run() == Gtk.ResponseType.OK:
+            path = dlg.get_filename()
+            try:
+                with open(path) as f:
+                    tracks = json.load(f)
+                if not isinstance(tracks, list):
+                    raise ValueError("Ungültiges Format")
+                self._clear_playlist(None)
+                for track in tracks:
+                    if not isinstance(track, dict) or "Id" not in track:
+                        continue
+                    if any(t["Id"] == track["Id"] for t in self.playlist_tracks):
+                        continue
+                    self.playlist_tracks.append(track)
+                    self.pl_store.append([
+                        track["Id"],
+                        track.get("Name", ""),
+                        track_artist(track),
+                        self.client.format_duration(track.get("RunTimeTicks", 0)) if self.client else "",
+                    ])
+                self._update_cd_counter()
+            except (OSError, json.JSONDecodeError, ValueError) as e:
+                self._show_error(f"Laden fehlgeschlagen: {e}")
+        dlg.destroy()
+
+    def _show_error(self, msg):
+        dlg = Gtk.MessageDialog(
+            transient_for=self, modal=True,
+            message_type=Gtk.MessageType.ERROR,
+            buttons=Gtk.ButtonsType.OK,
+            text=msg,
+        )
+        dlg.run()
+        dlg.destroy()
 
     def _update_cd_counter(self):
         total_s = sum(
