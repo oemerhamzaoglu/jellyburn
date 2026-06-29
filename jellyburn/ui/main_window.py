@@ -13,6 +13,7 @@ from ..config import (
     check_dependencies, seconds_to_mmss,
 )
 from ..player import Player
+from .mini_player import MiniPlayer
 from .settings_dialog import SettingsDialog
 
 
@@ -28,6 +29,11 @@ class MainWindow(Gtk.ApplicationWindow):
         self._build_ui()
         self._apply_css()
 
+        self.mini = MiniPlayer(
+            self.player,
+            on_play=self._play_selected,
+            on_stop=self._stop_playback,
+        )
         self.connect("delete-event", self._on_close)
 
         if self.config.get("server_url"):
@@ -35,6 +41,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _on_close(self, *_):
         self.player.stop()
+        self.mini.destroy()
 
     def _apply_css(self):
         css = """
@@ -181,6 +188,10 @@ class MainWindow(Gtk.ApplicationWindow):
         }
         dialog { background-color: #1a1a2e; }
         dialog .dialog-action-area button { font-size: 12px; }
+        .mini-player {
+            background-color: #1a1a2e;
+            border: 1px solid #222236;
+        }
         paned separator {
             background-color: #222236;
             min-width: 1px;
@@ -203,6 +214,11 @@ class MainWindow(Gtk.ApplicationWindow):
         btn_settings.set_tooltip_text("Einstellungen")
         btn_settings.connect("clicked", self._open_settings)
         header.pack_end(btn_settings)
+
+        btn_mini = Gtk.Button.new_from_icon_name("view-restore-symbolic", Gtk.IconSize.BUTTON)
+        btn_mini.set_tooltip_text("Mini-Player")
+        btn_mini.connect("clicked", self._toggle_mini)
+        header.pack_end(btn_mini)
 
         btn_connect = Gtk.Button.new_from_icon_name("network-transmit-receive-symbolic", Gtk.IconSize.BUTTON)
         btn_connect.set_tooltip_text("Neu verbinden")
@@ -567,6 +583,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.np_sub.set_text(artist)
         self.np_time.set_text("")
         self.np_progress.set_value(0)
+        self.mini.set_track(title, artist)
 
         if track and self.client:
             threading.Thread(target=self._load_art, args=(track["Id"],), daemon=True).start()
@@ -579,6 +596,7 @@ class MainWindow(Gtk.ApplicationWindow):
             if not self._scrubbing:
                 GLib.idle_add(self.np_progress.set_range, 0, max(total, 1))
                 GLib.idle_add(self.np_progress.set_value, elapsed)
+            GLib.idle_add(self.mini.set_progress, elapsed, total, time_str)
 
         def on_error(msg):
             GLib.idle_add(self.np_title.set_text, msg)
@@ -589,6 +607,12 @@ class MainWindow(Gtk.ApplicationWindow):
             on_progress=on_progress,
             on_error=on_error,
         )
+
+    def _toggle_mini(self, _):
+        if self.mini.get_visible():
+            self.mini.hide()
+        else:
+            self.mini.show()
 
     def _on_scrub_start(self, widget, event):
         self._scrubbing = True
@@ -607,11 +631,14 @@ class MainWindow(Gtk.ApplicationWindow):
                 loader = GdkPixbuf.PixbufLoader()
                 loader.write(resp.content)
                 loader.close()
-                GLib.idle_add(self.art_image.set_from_pixbuf, loader.get_pixbuf())
+                pixbuf = loader.get_pixbuf()
+                GLib.idle_add(self.art_image.set_from_pixbuf, pixbuf)
+                GLib.idle_add(self.mini.set_art, pixbuf)
                 return
         except Exception:
             pass
         GLib.idle_add(self.art_image.clear)
+        GLib.idle_add(self.mini.set_art, None)
 
     def _stop_playback(self, _):
         self.player.stop()
@@ -620,6 +647,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.np_time.set_text("")
         self.np_progress.set_value(0)
         self.art_image.clear()
+        self.mini.clear()
 
     # ── Playlist ──
     def _add_selected_to_playlist(self, _):
