@@ -1,7 +1,6 @@
 # jellyburn
-<<<<<<< HEAD
 
-A GTK3 music player for Jellyfin with CD burning support - browse your library, build a playlist, burn it to CD. All on Linux, no proprietary dependencies.
+A GTK3 desktop app for Linux to browse your Jellyfin music library, build playlists, and burn them directly to audio CD.
 
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -10,19 +9,24 @@ A GTK3 music player for Jellyfin with CD burning support - browse your library, 
 
 ## Features
 
-- Connects to any Jellyfin server (local or remote via HTTPS)
-- Browse and search your music library
-- Playback via `mpv`
-- Build playlists with real-time CD capacity indicator (max. 74 min)
-- Burn directly to CD via `wodim` - no intermediate steps
+- Connects to any Jellyfin server (API key auth)
+- Browse and search your music library by title, artist or album
+- Album art display from Jellyfin
+- Playback via `mpv` with now-playing info and progress bar
+- Playlist builder with track numbers, save/load as JSON
+- Real-time CD capacity bar (green → yellow → red, max. 74 min)
+- Burn directly to audio CD via `wodim` — no extra steps
+- Detects missing system dependencies on startup
 
 ## Requirements
 
-System packages (install once):
+System packages:
 
 ```bash
 sudo apt install python3-gi gir1.2-gtk-3.0 mpv ffmpeg wodim
 ```
+
+Python 3.10 or newer. The only Python dependency (`requests`) is installed automatically.
 
 ## Installation
 
@@ -30,16 +34,10 @@ sudo apt install python3-gi gir1.2-gtk-3.0 mpv ffmpeg wodim
 pip install jellyburn
 ```
 
-## Run
+Or run from source:
 
 ```bash
-jellyburn
-```
-
-Or without installing:
-
-```bash
-git clone https://github.com/oemeraky/jellyburn
+git clone https://github.com/oemerhamzaoglu/jellyburn
 cd jellyburn
 pip install -e .
 jellyburn
@@ -49,29 +47,33 @@ jellyburn
 
 1. Click the settings icon (top right)
 2. Enter your Jellyfin server URL, e.g. `https://jellyfin.example.com`
-3. Enter an API key (Jellyfin Dashboard -> Administration -> API Keys -> New)
+3. Enter an API key — Jellyfin Dashboard → Administration → API Keys → New
 4. Check CD device (default: `/dev/sr0`)
-5. Save and connect
+5. Save — the app connects and loads your library
 
-Config is stored in `~/.config/jellyburn.json`.
+Config is stored in `~/.config/jellyburn.json` (no passwords saved).
 
 ## Usage
 
-- **Search** - type to filter by title, artist or album
-- **Play** - double-click a track, or select + play button (requires `mpv`)
-- **Add to playlist** - select one or more tracks (Ctrl+click), then click the add button
-- **Remove from playlist** - right-click in the playlist
-- **Burn** - click "CD brennen" when your playlist is ready
+| Action | How |
+|---|---|
+| Search | Type in the search bar — filters by title, artist, album |
+| Play | Double-click a track in the library, or select + press play |
+| Add to playlist | Select one or more tracks (Ctrl+click), then "+ Auswahl hinzufügen" |
+| Reorder playlist | Drag and drop (planned, see issue tracker) |
+| Save/load playlist | Use the open/save icons in the playlist header |
+| Remove from playlist | Right-click in the playlist |
+| Burn | Click "● CD BRENNEN" when your playlist is ready |
 
-The CD bar turns red if the playlist exceeds 74 minutes.
+The CD capacity bar turns yellow above 85 % and red when the playlist exceeds 74 minutes.
 
 ## Burn process
 
-1. Tracks are downloaded from Jellyfin
-2. Converted to WAV (44100 Hz, stereo) via `ffmpeg`
-3. Written to CD as audio disc via `wodim`
+1. Tracks are downloaded from Jellyfin one by one
+2. Each track is converted to WAV (44100 Hz, 16-bit stereo) via `ffmpeg`
+3. All WAV files are written to CD as an audio disc via `wodim`
 
-Temporary files are cleaned up automatically.
+Temporary files in `/tmp/jellyfin_burn_*/` are cleaned up automatically.
 
 ## Verify your CD drive
 
@@ -81,11 +83,8 @@ wodim dev=/dev/sr0 -checkdrive
 
 ## Contributing
 
-PRs welcome. Please open an issue first for larger changes.
+Open an issue before starting larger changes. PRs welcome.
 
 ## License
 
-MIT - see [LICENSE](LICENSE)
-=======
-GTK3 music player for Jellyfin with CD burning support: browse your library, build a playlist, burn it to disc.
->>>>>>> bb5c7e10716ec4e038836f66b34c688a6a3adee9
+MIT — see [LICENSE](LICENSE)

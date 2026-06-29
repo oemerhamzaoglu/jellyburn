@@ -7,4 +7,4 @@ build/
 venv/
 *.egg
 .env
-~/.config/jellyburn.json
+.config/jellyburn.json
