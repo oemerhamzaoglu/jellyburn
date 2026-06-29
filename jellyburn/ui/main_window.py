@@ -26,6 +26,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self._current_track = None
         self.playlist_tracks = []
         self._ignore_store_signals = False
+        self._filter_artist = ""
+        self._filter_album = ""
+        self._filter_query = ""
+        self._browser_loading = False
         self._build_ui()
         self._apply_css()
 
@@ -274,9 +278,11 @@ class MainWindow(Gtk.ApplicationWindow):
 
         track_sw = Gtk.ScrolledWindow()
         track_sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        # cols: 0=Id  1=Titel  2=Künstler  3=Album  4=Dauer
-        self.track_store = Gtk.ListStore(str, str, str, str, str)
-        self.track_view = Gtk.TreeView(model=self.track_store, headers_visible=True)
+        # cols: 0=Id  1=Titel  2=Künstler  3=Album  4=Dauer  5=ArtistKey  6=ParentId
+        self.track_store = Gtk.ListStore(str, str, str, str, str, str, str)
+        self._track_filter = self.track_store.filter_new()
+        self._track_filter.set_visible_func(self._track_visible)
+        self.track_view = Gtk.TreeView(model=self._track_filter, headers_visible=True)
         self.track_view.set_activate_on_single_click(False)
         self.track_view.set_rules_hint(True)
 
@@ -484,10 +490,12 @@ class MainWindow(Gtk.ApplicationWindow):
         if not self.client:
             return
         for t in page:
+            artist = track_artist(t)
             self.track_store.append([
-                t["Id"], t.get("Name", ""), track_artist(t),
-                t.get("Album", ""),
+                t["Id"], t.get("Name", ""), artist, t.get("Album", ""),
                 self.client.format_duration(t.get("RunTimeTicks", 0)),
+                artist,                  # col 5: ArtistKey (für Filter)
+                t.get("ParentId", ""),   # col 6: ParentId  (für Filter)
             ])
 
     def _populate_tracks(self, tracks):
@@ -499,20 +507,35 @@ class MainWindow(Gtk.ApplicationWindow):
         self._fill_artist_store()
         self.lib_status.set_text(f"{len(tracks)} Tracks geladen")
 
+    def _track_visible(self, model, it, _data):
+        if self._filter_query:
+            q = self._filter_query
+            return (q in model[it][1].lower()
+                    or q in model[it][2].lower()
+                    or q in model[it][3].lower())
+        if self._filter_artist and model[it][5] != self._filter_artist:
+            return False
+        if self._filter_album and model[it][6] != self._filter_album:
+            return False
+        return True
+
     def _fill_artist_store(self):
-        seen = {}
+        self._browser_loading = True
+        seen = set()
         self.artist_store.clear()
         self.artist_store.append(("", "Alle Künstler"))
         for t in self.all_tracks:
-            for aid in t.get("ArtistIds", []):
-                if aid not in seen:
-                    seen[aid] = track_artist(t)
-        for aid, name in sorted(seen.items(), key=lambda x: x[1].lower()):
-            self.artist_store.append((aid, name))
-        # Alle Künstler vorauswählen ohne Handler auszulösen
+            name = track_artist(t)
+            if name and name not in seen:
+                seen.add(name)
+        for name in sorted(seen, key=str.lower):
+            self.artist_store.append((name, name))
+        self._browser_loading = False
+        self._fill_album_store(self.all_tracks)
         self.artist_view.get_selection().select_path(Gtk.TreePath.new_first())
 
     def _fill_album_store(self, tracks):
+        self._browser_loading = True
         seen = {}
         self.album_store.clear()
         self.album_store.append(("", "Alle Alben"))
@@ -522,66 +545,36 @@ class MainWindow(Gtk.ApplicationWindow):
                 seen[pid] = t.get("Album", "?")
         for pid, name in sorted(seen.items(), key=lambda x: x[1].lower()):
             self.album_store.append((pid, name))
+        self._browser_loading = False
         self.album_view.get_selection().select_path(Gtk.TreePath.new_first())
 
     def _on_artist_selected(self, selection):
+        if self._browser_loading:
+            return
         model, it = selection.get_selected()
         if not it:
             return
-        artist_id = model[it][0]
-        if artist_id == "":
-            self._artist_tracks = self.all_tracks
-        else:
-            self._artist_tracks = [
-                t for t in self.all_tracks if artist_id in t.get("ArtistIds", [])
-            ]
-        self._fill_album_store(self._artist_tracks)
-        self._fill_track_store(self._artist_tracks)
+        self._filter_artist = model[it][0]
+        self._filter_album = ""
+        self._track_filter.refilter()
+        artist_tracks = (self.all_tracks if not self._filter_artist
+                         else [t for t in self.all_tracks
+                               if track_artist(t) == self._filter_artist])
+        self._fill_album_store(artist_tracks)
 
     def _on_album_selected(self, selection):
+        if self._browser_loading:
+            return
         model, it = selection.get_selected()
         if not it:
             return
-        album_id = model[it][0]
-        source = getattr(self, "_artist_tracks", self.all_tracks)
-        if album_id == "":
-            self._fill_track_store(source)
-        else:
-            self._fill_track_store([t for t in source if t.get("ParentId") == album_id])
-
-    def _fill_track_store(self, tracks):
-        self.track_store.clear()
-        for t in tracks:
-            self.track_store.append([
-                t["Id"],
-                t.get("Name", ""),
-                track_artist(t),
-                t.get("Album", ""),
-                self.client.format_duration(t.get("RunTimeTicks", 0)) if self.client else "",
-            ])
+        self._filter_album = model[it][0]
+        self._track_filter.refilter()
 
     # ── Suche ──
     def _on_search(self, entry):
-        query = entry.get_text().lower()
-        all_tracks = getattr(self, "all_tracks", [])
-        if not query:
-            # Browser-Selektion wiederherstellen
-            sel = self.album_view.get_selection()
-            model, it = sel.get_selected()
-            if it:
-                album_id = model[it][0]
-                source = getattr(self, "_artist_tracks", all_tracks)
-                self._fill_track_store(source if album_id == "" else
-                                       [t for t in source if t.get("ParentId") == album_id])
-            else:
-                self._fill_track_store(all_tracks)
-            return
-        self._fill_track_store([
-            t for t in all_tracks
-            if query in t.get("Name", "").lower()
-            or query in track_artist(t).lower()
-            or query in t.get("Album", "").lower()
-        ])
+        self._filter_query = entry.get_text().lower()
+        self._track_filter.refilter()
 
     # ── Wiedergabe ──
     def _on_track_activated(self, treeview, path, col):
