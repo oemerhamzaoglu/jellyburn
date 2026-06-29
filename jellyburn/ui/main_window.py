@@ -444,7 +444,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 username=self.config.get("username") or None,
                 password=self.config.get("password") or None,
             )
-            tracks = self.client.search_music(limit=500)
+            tracks = self.client.search_music()
             GLib.idle_add(self._populate_tracks, tracks)
         except requests.exceptions.ConnectionError:
             GLib.idle_add(self.lib_status.set_text,
