@@ -20,6 +20,18 @@ import json
 import time
 import urllib.parse
 
+# ── Systemdeps ─────────────────────────────────────────────────────────────────
+REQUIRED_TOOLS = {
+    "mpv":    "Wiedergabe (mpv)",
+    "ffmpeg": "Audio-Konvertierung (ffmpeg)",
+    "wodim":  "CD-Brennen (wodim)",
+}
+
+def check_dependencies():
+    missing = [label for cmd, label in REQUIRED_TOOLS.items()
+               if subprocess.run(["which", cmd], capture_output=True).returncode != 0]
+    return missing
+
 # ── Konfiguration ──────────────────────────────────────────────────────────────
 CONFIG_FILE = os.path.expanduser("~/.config/jellyburn.json")
 
@@ -33,6 +45,8 @@ DEFAULT_CONFIG = {
 
 # ── Jellyfin API ───────────────────────────────────────────────────────────────
 class JellyfinClient:
+    TIMEOUT = 15  # Sekunden
+
     def __init__(self, server_url, api_key=None, username=None, password=None):
         self.server_url = server_url.rstrip("/")
         self.api_key = api_key
@@ -42,6 +56,10 @@ class JellyfinClient:
             "X-Emby-Authorization": f'MediaBrowser Client="Jellyburn", Device="Linux", DeviceId="jellyburn-01", Version="1.0"',
             "Content-Type": "application/json",
         })
+        # apply timeout to every request automatically
+        self.session.request = lambda method, url, **kw: \
+            requests.Session.request(self.session, method, url,
+                                     timeout=kw.pop("timeout", self.TIMEOUT), **kw)
         if api_key:
             self.session.headers["X-MediaBrowser-Token"] = api_key
         elif username and password:
@@ -273,6 +291,10 @@ class BurnDialog(Gtk.Dialog):
         self.show_all()
 
     def _on_burn_clicked(self, _):
+        missing = check_dependencies()
+        if missing:
+            self._set_status("Fehlende Programme: " + ", ".join(missing))
+            return
         self.burn_btn.set_sensitive(False)
         self.cancel_btn.set_sensitive(False)
         self._burning = True
@@ -331,7 +353,7 @@ class BurnDialog(Gtk.Dialog):
                     capture_output=True, text=True
                 )
                 if result.returncode != 0:
-                    self._set_status(f"Fehler bei Konvertierung: {name}\n{result.stderr[-200:]}")
+                    self._set_status(f"Konvertierung fehlgeschlagen: {name}\n{result.stderr.strip()[-400:]}")
                     return
                 wav_files.append(wav_path)
                 os.unlink(src_path)
@@ -394,6 +416,21 @@ class JellyburnApp(Gtk.Application):
     def do_activate(self):
         win = MainWindow(application=self)
         win.show_all()
+        missing = check_dependencies()
+        if missing:
+            dlg = Gtk.MessageDialog(
+                transient_for=win, modal=True,
+                message_type=Gtk.MessageType.WARNING,
+                buttons=Gtk.ButtonsType.OK,
+                text="Fehlende Systemabhängigkeiten",
+            )
+            dlg.format_secondary_text(
+                "Folgende Programme wurden nicht gefunden:\n\n" +
+                "\n".join(f"  • {label}" for label in missing) +
+                "\n\nBitte installieren, damit alle Funktionen verfügbar sind."
+            )
+            dlg.run()
+            dlg.destroy()
 
 
 class MainWindow(Gtk.ApplicationWindow):
@@ -587,6 +624,16 @@ class MainWindow(Gtk.ApplicationWindow):
             )
             tracks = self.client.search_music(limit=500)
             GLib.idle_add(self._populate_tracks, tracks)
+        except requests.exceptions.ConnectionError:
+            GLib.idle_add(self.lib_status.set_text,
+                          "Verbindung fehlgeschlagen – Server erreichbar?")
+        except requests.exceptions.Timeout:
+            GLib.idle_add(self.lib_status.set_text,
+                          "Timeout – Server antwortet nicht.")
+        except requests.exceptions.HTTPError as e:
+            code = e.response.status_code if e.response is not None else "?"
+            msg = "Ungültige Zugangsdaten." if code == 401 else f"HTTP {code}"
+            GLib.idle_add(self.lib_status.set_text, msg)
         except Exception as e:
             GLib.idle_add(self.lib_status.set_text, f"Fehler: {e}")
 
