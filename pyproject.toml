@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "jellyburn"
@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "A GTK music player for Jellyfin with CD burning support"
 readme = "README.md"
 license = { text = "MIT" }
-authors = [{ name = "Ömer Akyüz" }]
+authors = [{ name = "Ömer Hamzaoğlu" }]
 keywords = ["jellyfin", "music", "cd", "burning", "gtk", "linux"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -28,8 +28,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/oemeraky/jellyburn"
-Issues = "https://github.com/oemeraky/jellyburn/issues"
+Homepage = "https://github.com/oemerhamzaoglu/jellyburn"
+Issues = "https://github.com/oemerhamzaoglu/jellyburn/issues"
 
 [project.scripts]
 jellyburn = "jellyburn.__main__:main"
