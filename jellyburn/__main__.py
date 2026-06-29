@@ -764,6 +764,9 @@ class MainWindow(Gtk.ApplicationWindow):
 
 
 # ── Einstiegspunkt ─────────────────────────────────────────────────────────────
-if __name__ == "__main__":
+def main():
     app = JellyburnApp()
     app.run(sys.argv)
+
+if __name__ == "__main__":
+    main()
