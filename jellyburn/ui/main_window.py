@@ -24,6 +24,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.player = Player()
         self._current_track = None
         self.playlist_tracks = []
+        self._ignore_store_signals = False
         self._build_ui()
         self._apply_css()
 
@@ -279,7 +280,9 @@ class MainWindow(Gtk.ApplicationWindow):
             c.set_expand(expand)
             self.pl_view.append_column(c)
 
+        self.pl_view.set_reorderable(True)
         self.pl_view.connect("button-press-event", self._on_pl_right_click)
+        self.pl_store.connect("row-deleted", self._sync_playlist_from_store)
         sw2.add(self.pl_view)
         right.pack_start(sw2, True, True, 0)
 
@@ -507,13 +510,23 @@ class MainWindow(Gtk.ApplicationWindow):
             menu.show_all()
             menu.popup_at_pointer(event)
 
+    def _sync_playlist_from_store(self, *_):
+        if self._ignore_store_signals:
+            return
+        id_to_track = {t["Id"]: t for t in self.playlist_tracks}
+        self.playlist_tracks = [id_to_track[row[0]] for row in self.pl_store if row[0] in id_to_track]
+        self._renumber_playlist()
+        self._update_cd_counter()
+
     def _remove_from_playlist(self, _):
+        self._ignore_store_signals = True
         sel = self.pl_view.get_selection()
         model, paths = sel.get_selected_rows()
         for path in reversed(paths):
             track_id = model[path][0]
             self.playlist_tracks = [t for t in self.playlist_tracks if t["Id"] != track_id]
             model.remove(model.get_iter(path))
+        self._ignore_store_signals = False
         self._renumber_playlist()
         self._update_cd_counter()
 
@@ -522,8 +535,10 @@ class MainWindow(Gtk.ApplicationWindow):
             row[1] = str(i + 1)
 
     def _clear_playlist(self, _):
+        self._ignore_store_signals = True
         self.playlist_tracks = []
         self.pl_store.clear()
+        self._ignore_store_signals = False
         self._update_cd_counter()
 
     def _save_playlist(self, _):
