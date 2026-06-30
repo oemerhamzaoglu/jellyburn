@@ -60,6 +60,32 @@ pip install -e .
 jellyburn
 ```
 
+## Desktop integration (optional)
+
+After installing via pip, add Jellyburn to your application menu:
+
+```bash
+# Icon
+mkdir -p ~/.local/share/icons/hicolor/scalable/apps
+curl -o ~/.local/share/icons/hicolor/scalable/apps/jellyburn.svg \
+  https://raw.githubusercontent.com/oemerhamzaoglu/jellyburn/main/jellyburn/icons/jellyburn.svg
+
+# Desktop entry
+mkdir -p ~/.local/share/applications
+cat > ~/.local/share/applications/jellyburn.desktop << 'EOF'
+[Desktop Entry]
+Name=Jellyburn
+Comment=Browse your Jellyfin music library and burn audio CDs
+Exec=jellyburn
+Icon=jellyburn
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Music;
+EOF
+
+update-desktop-database ~/.local/share/applications/
+```
+
 ## Setup
 
 1. Click the settings icon (⚙) in the top right
