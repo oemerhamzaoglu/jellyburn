@@ -95,6 +95,7 @@ class BurnDialog(Gtk.Dialog):
             self.response(Gtk.ResponseType.CANCEL)
 
     def _on_burn_done(self):
+        self._burning = False
         self.cancel_btn.set_label("Schließen")
         self.cancel_btn.set_sensitive(True)
 
