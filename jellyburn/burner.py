@@ -3,6 +3,17 @@ import subprocess
 import tempfile
 import threading
 
+
+def resolve_sg_device(sr_device):
+    """Löst /dev/srX in das passende /dev/sgX auf (für wodim nötig)."""
+    try:
+        name = os.path.basename(sr_device)  # z.B. "sr0"
+        sg_dir = f"/sys/block/{name}/device/scsi_generic"
+        sg_name = os.listdir(sg_dir)[0]     # z.B. "sg1"
+        return f"/dev/{sg_name}"
+    except Exception:
+        return sr_device  # Fallback: original behalten
+
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
@@ -141,7 +152,7 @@ class BurnDialog(Gtk.Dialog):
             self._set_status("Starte Brennvorgang – bitte nicht abbrechen...")
             self._set_progress(0.5, "Brennen...")
 
-            device = self.config.get("cd_device", "/dev/sr0")
+            device = resolve_sg_device(self.config.get("cd_device", "/dev/sr0"))
             speed = self.config.get("burn_speed", 4)
             cmd = ["wodim", f"dev={device}", f"speed={speed}", "-v", "-dao", "-audio", "-pad"] + wav_files
 
