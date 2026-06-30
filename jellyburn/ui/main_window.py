@@ -504,9 +504,10 @@ class MainWindow(Gtk.ApplicationWindow):
                 t["Id"], t.get("Name", ""), artist, t.get("Album", ""),
                 t.get("_dur", ""), artist, t.get("ParentId", ""),
             ])
-        self._fill_artist_store()
         self.load_bar.hide()
         self.lib_status.set_text(f"{len(tracks)} Tracks (Cache) – aktualisiere…")
+        # Nächster Idle-Zyklus: GTK hat den Store dann vollständig verarbeitet
+        GLib.idle_add(self._fill_artist_store)
 
     def _apply_refresh(self, fresh_tracks):
         existing_ids = {t["Id"] for t in self.all_tracks}
@@ -535,8 +536,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 else:
                     it = self.track_store.iter_next(it)
 
-        if new_tracks or removed_ids:
-            self._fill_artist_store()
+        self._fill_artist_store()
 
         save_library_cache(self.config["server_url"], self.all_tracks)
 
