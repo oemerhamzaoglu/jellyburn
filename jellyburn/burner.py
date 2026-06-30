@@ -143,7 +143,7 @@ class BurnDialog(Gtk.Dialog):
 
             device = self.config.get("cd_device", "/dev/sr0")
             speed = self.config.get("burn_speed", 4)
-            cmd = ["wodim", f"dev={device}", f"speed={speed}", "-v", "-audio", "-pad"] + wav_files
+            cmd = ["wodim", f"dev={device}", f"speed={speed}", "-v", "-dao", "-audio", "-pad"] + wav_files
 
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             output_lines = []
@@ -158,7 +158,7 @@ class BurnDialog(Gtk.Dialog):
                 self._set_status("CD erfolgreich gebrannt!")
                 self._set_progress(1.0, "Fertig!")
             else:
-                last = "\n".join(output_lines[-5:])
+                last = "\n".join(output_lines[-20:])
                 self._set_status(f"Brenner-Fehler (Code {proc.returncode}):\n{last}")
 
         except Exception as e:
