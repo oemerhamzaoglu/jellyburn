@@ -7,6 +7,8 @@ A GTK3 desktop app for Linux to browse your Jellyfin music library, build playli
 ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
 
+<img width="1327" height="723" alt="jellyburn" src="https://github.com/user-attachments/assets/df65fc5d-e16f-480a-9d80-68ea98204baa" />
+
 ## Features
 
 - Connects to any Jellyfin server via API key or username/password
