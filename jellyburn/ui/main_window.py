@@ -686,7 +686,7 @@ class MainWindow(Gtk.ApplicationWindow):
         track = next((t for t in getattr(self, "all_tracks", []) if t["Id"] == track_id), None)
         self._play_url(self.client.get_stream_url(track_id), f"{row[3]} - {row[2]}", track=track)
 
-    def _play_selected(self, _):
+    def _play_selected(self, _btn):
         sel = self.track_view.get_selection()
         model, paths = sel.get_selected_rows()
         if not paths:
@@ -737,7 +737,7 @@ class MainWindow(Gtk.ApplicationWindow):
             on_error=on_error,
         )
 
-    def _toggle_mini(self, _):
+    def _toggle_mini(self, _btn):
         self.hide()
         self.mini.show()
 
@@ -771,7 +771,7 @@ class MainWindow(Gtk.ApplicationWindow):
         GLib.idle_add(self.art_image.clear)
         GLib.idle_add(self.mini.set_art, None)
 
-    def _stop_playback(self, _):
+    def _stop_playback(self, _btn):
         self.player.stop()
         self.np_title.set_text("")
         self.np_sub.set_text("")
@@ -781,7 +781,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.mini.clear()
 
     # ── Playlist ──
-    def _add_selected_to_playlist(self, _):
+    def _add_selected_to_playlist(self, _btn):
         sel = self.track_view.get_selection()
         model, paths = sel.get_selected_rows()
         for path in paths:
@@ -818,7 +818,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._remove_from_playlist(None)
             return True
 
-    def _remove_from_playlist(self, _):
+    def _remove_from_playlist(self, _btn):
         self._ignore_store_signals = True
         sel = self.pl_view.get_selection()
         model, paths = sel.get_selected_rows()
@@ -834,14 +834,14 @@ class MainWindow(Gtk.ApplicationWindow):
         for i, row in enumerate(self.pl_store):
             row[1] = str(i + 1)
 
-    def _clear_playlist(self, _):
+    def _clear_playlist(self, _btn):
         self._ignore_store_signals = True
         self.playlist_tracks = []
         self.pl_store.clear()
         self._ignore_store_signals = False
         self._update_cd_counter()
 
-    def _save_playlist(self, _):
+    def _save_playlist(self, _btn):
         if not self.playlist_tracks:
             return
         dlg = Gtk.FileChooserDialog(
@@ -866,7 +866,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 self._show_error(_("Save failed: {error}").format(error=e))
         dlg.destroy()
 
-    def _load_playlist(self, _):
+    def _load_playlist(self, _btn):
         dlg = Gtk.FileChooserDialog(
             title=_("Load playlist"), transient_for=self,
             action=Gtk.FileChooserAction.OPEN,
@@ -935,7 +935,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.burn_btn.set_sensitive(len(self.playlist_tracks) > 0)
 
     # ── Einstellungen ──
-    def _open_settings(self, _):
+    def _open_settings(self, _btn):
         dlg = SettingsDialog(self, self.config)
         if dlg.run() == Gtk.ResponseType.OK:
             vals = dlg.get_values()
@@ -956,7 +956,7 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg.destroy()
 
     # ── Brennen ──
-    def _start_burn(self, _):
+    def _start_burn(self, _btn):
         if not self.playlist_tracks:
             return
         total_s = sum(self.client.ticks_to_seconds(t.get("RunTimeTicks", 0)) for t in self.playlist_tracks)

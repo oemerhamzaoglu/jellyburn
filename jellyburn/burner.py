@@ -79,7 +79,7 @@ class BurnDialog(Gtk.Dialog):
         box.pack_start(btn_box, False, False, 0)
         self.show_all()
 
-    def _on_burn_clicked(self, _):
+    def _on_burn_clicked(self, _btn):
         missing = check_dependencies()
         if missing:
             self._set_status(_("Missing programs: ") + ", ".join(missing))
@@ -89,7 +89,7 @@ class BurnDialog(Gtk.Dialog):
         self._burning = True
         threading.Thread(target=self._burn_thread, daemon=True).start()
 
-    def _on_cancel(self, _):
+    def _on_cancel(self, _btn):
         if self._burning:
             self.cancelled = True
         else:
