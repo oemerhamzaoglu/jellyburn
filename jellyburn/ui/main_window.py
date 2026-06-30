@@ -115,12 +115,23 @@ class MainWindow(Gtk.ApplicationWindow):
             min-height: 6px;
         }
         progressbar progress {
+            background-image: none;
             background-color: #3dc47e;
             border-radius: 3px;
             min-height: 6px;
         }
-        progressbar.cd-yellow progress { background-color: #e8a838; }
-        progressbar.cd-red    progress { background-color: #e94560; }
+        progressbar.cd-bar progress {
+            background-image: none;
+            background-color: #3dc47e;
+        }
+        progressbar.cd-yellow progress {
+            background-image: none;
+            background-color: #e8a838;
+        }
+        progressbar.cd-red progress {
+            background-image: none;
+            background-color: #e94560;
+        }
         button {
             background-color: #1e1e30;
             border: 1px solid #2a2a40;
