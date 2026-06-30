@@ -280,34 +280,24 @@ class MainWindow(Gtk.ApplicationWindow):
 
         track_sw = Gtk.ScrolledWindow()
         track_sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        # cols: 0=Id  1=Titel  2=Künstler  3=Album  4=Dauer  5=ArtistKey  6=ParentId
-        self.track_store = Gtk.ListStore(str, str, str, str, str, str, str)
+        # cols: 0=Id  1=Nr  2=Titel  3=Künstler  4=Album  5=Dauer  6=ArtistKey  7=ParentId
+        self.track_store = Gtk.ListStore(str, str, str, str, str, str, str, str)
         self._track_filter = self.track_store.filter_new()
         self._track_filter.set_visible_func(self._track_visible)
         self.track_view = Gtk.TreeView(model=self._track_filter, headers_visible=True)
         self.track_view.set_activate_on_single_click(False)
         self.track_view.set_rules_hint(True)
 
-        # cols: key → (store_col, title, expand, always_visible)
-        self._col_defs = [
-            ("titel",    1, "Titel",    True,  True),
-            ("kuenstler",2, "Künstler", True,  False),
-            ("album",    3, "Album",    True,  False),
-            ("laenge",   4, "Länge",    False, False),
-        ]
-        self._track_cols = {}
-        visible_cols = self.config.get("visible_columns",
-                                       ["titel", "kuenstler", "album", "laenge"])
-        for key, store_col, title, expand, always in self._col_defs:
+        for title, col, expand in [("#", 1, False), ("Titel", 2, True),
+                                    ("Künstler", 3, True), ("Album", 4, True),
+                                    ("Länge", 5, False)]:
             rend = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
-            c = Gtk.TreeViewColumn(title, rend, text=store_col)
+            if title == "#":
+                rend.set_property("xalign", 1.0)
+            c = Gtk.TreeViewColumn(title, rend, text=col)
             c.set_resizable(True)
             c.set_expand(expand)
-            c.set_visible(always or key in visible_cols)
-            self._track_cols[key] = c
             self.track_view.append_column(c)
-
-        self.track_view.connect("button-press-event", self._on_track_header_click)
 
         self.track_view.get_selection().set_mode(Gtk.SelectionMode.MULTIPLE)
         self.track_view.connect("row-activated", self._on_track_activated)
@@ -516,7 +506,8 @@ class MainWindow(Gtk.ApplicationWindow):
         for t in tracks:
             artist = track_artist(t)
             self.track_store.append([
-                t["Id"], t.get("Name", ""), artist, t.get("Album", ""),
+                t["Id"], str(t.get("IndexNumber") or ""),
+                t.get("Name", ""), artist, t.get("Album", ""),
                 t.get("_dur", ""), artist, t.get("ParentId", ""),
             ])
         self.load_bar.hide()
@@ -538,7 +529,8 @@ class MainWindow(Gtk.ApplicationWindow):
                 t["_dur"] = dur
                 self.all_tracks.append(t)
                 self.track_store.append([
-                    t["Id"], t.get("Name", ""), artist, t.get("Album", ""),
+                    t["Id"], str(t.get("IndexNumber") or ""),
+                    t.get("Name", ""), artist, t.get("Album", ""),
                     dur, artist, t.get("ParentId", ""),
                 ])
 
@@ -573,7 +565,8 @@ class MainWindow(Gtk.ApplicationWindow):
             dur = self.client.format_duration(t.get("RunTimeTicks", 0))
             t["_dur"] = dur
             self.track_store.append([
-                t["Id"], t.get("Name", ""), artist, t.get("Album", ""),
+                t["Id"], str(t.get("IndexNumber") or ""),
+                t.get("Name", ""), artist, t.get("Album", ""),
                 dur, artist, t.get("ParentId", ""),
             ])
 
@@ -593,12 +586,12 @@ class MainWindow(Gtk.ApplicationWindow):
     def _track_visible(self, model, it, _data):
         if self._filter_query:
             q = self._filter_query
-            return (q in model[it][1].lower()
-                    or q in model[it][2].lower()
-                    or q in model[it][3].lower())
-        if self._filter_artist and model[it][5] != self._filter_artist:
+            return (q in model[it][2].lower()
+                    or q in model[it][3].lower()
+                    or q in model[it][4].lower())
+        if self._filter_artist and model[it][6] != self._filter_artist:
             return False
-        if self._filter_album and model[it][6] != self._filter_album:
+        if self._filter_album and model[it][7] != self._filter_album:
             return False
         return True
 
@@ -666,7 +659,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if not self.client:
             return
         track = next((t for t in getattr(self, "all_tracks", []) if t["Id"] == track_id), None)
-        self._play_url(self.client.get_stream_url(track_id), f"{row[2]} - {row[1]}", track=track)
+        self._play_url(self.client.get_stream_url(track_id), f"{row[3]} - {row[2]}", track=track)
 
     def _play_selected(self, _):
         sel = self.track_view.get_selection()
@@ -684,7 +677,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if not self.client:
             return
         track = next((t for t in getattr(self, "all_tracks", []) if t["Id"] == row[0]), None)
-        self._play_url(self.client.get_stream_url(row[0]), f"{row[2]} - {row[1]}", track=track)
+        self._play_url(self.client.get_stream_url(row[0]), f"{row[3]} - {row[2]}", track=track)
 
     def _play_url(self, url, label, track=None):
         parts = label.split(" - ", 1)
@@ -774,7 +767,7 @@ class MainWindow(Gtk.ApplicationWindow):
             track = next((t for t in getattr(self, "all_tracks", []) if t["Id"] == track_id), None)
             if track:
                 self.playlist_tracks.append(track)
-                self.pl_store.append([track_id, str(len(self.playlist_tracks)), row[1], row[2], row[4]])
+                self.pl_store.append([track_id, str(len(self.playlist_tracks)), row[2], row[3], row[5]])
         self._update_cd_counter()
 
     def _on_pl_right_click(self, widget, event):
@@ -785,34 +778,6 @@ class MainWindow(Gtk.ApplicationWindow):
             menu.append(item_remove)
             menu.show_all()
             menu.popup_at_pointer(event)
-
-    def _on_track_header_click(self, widget, event):
-        if event.button != 3:
-            return False
-        # get_path_at_pos gibt None zurück wenn der Klick im Header-Bereich liegt
-        if widget.get_path_at_pos(int(event.x), int(event.y)) is not None:
-            return False
-        menu = Gtk.Menu()
-        for key, _, title, _, always in self._col_defs:
-            if always:
-                continue
-            item = Gtk.CheckMenuItem(label=title)
-            item.set_active(self._track_cols[key].get_visible())
-            def _toggle(mi, k=key):
-                self._track_cols[k].set_visible(mi.get_active())
-                self._save_column_config()
-            item.connect("toggled", _toggle)
-            menu.append(item)
-        menu.show_all()
-        menu.popup_at_pointer(event)
-        return True
-
-    def _save_column_config(self):
-        self.config["visible_columns"] = [
-            key for key, *_ in self._col_defs
-            if self._track_cols[key].get_visible()
-        ]
-        save_config({k: v for k, v in self.config.items() if k != "password"})
 
     def _sync_playlist_from_store(self, *_):
         if self._ignore_store_signals:
