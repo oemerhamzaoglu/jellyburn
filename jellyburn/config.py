@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import subprocess
@@ -39,6 +40,31 @@ def save_config(cfg):
     os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
     with open(CONFIG_FILE, "w") as f:
         json.dump(cfg, f, indent=2)
+
+
+CACHE_DIR = os.path.expanduser("~/.cache/jellyburn")
+
+
+def _cache_path(server_url):
+    h = hashlib.md5(server_url.encode()).hexdigest()[:10]
+    return os.path.join(CACHE_DIR, f"library_{h}.json")
+
+
+def load_library_cache(server_url):
+    path = _cache_path(server_url)
+    if os.path.exists(path):
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except (OSError, json.JSONDecodeError):
+            pass
+    return None
+
+
+def save_library_cache(server_url, tracks):
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    with open(_cache_path(server_url), "w") as f:
+        json.dump(tracks, f)
 
 
 def seconds_to_mmss(s):

@@ -11,6 +11,7 @@ from ..burner import BurnDialog
 from ..config import (
     CD_MAX_SECONDS, load_config, save_config,
     check_dependencies, seconds_to_mmss,
+    load_library_cache, save_library_cache,
 )
 from ..player import Player
 from .mini_player import MiniPlayer
@@ -452,22 +453,33 @@ class MainWindow(Gtk.ApplicationWindow):
         threading.Thread(target=self._connect_thread, daemon=True).start()
 
     def _connect_thread(self):
+        server_url = self.config["server_url"]
         try:
             self.client = JellyfinClient(
-                server_url=self.config["server_url"],
+                server_url=server_url,
                 api_key=self.config.get("api_key") or None,
                 username=self.config.get("username") or None,
                 password=self.config.get("password") or None,
             )
-            all_tracks = []
 
-            def on_page(page, loaded, total):
-                all_tracks.extend(page)
-                fraction = loaded / total if total else 0
-                GLib.idle_add(self._on_load_page, list(page), loaded, total, fraction)
+            cached = load_library_cache(server_url)
+            if cached:
+                GLib.idle_add(self._apply_cache, cached)
+                # Hintergrund-Refresh ohne Fortschrittsbalken
+                fresh = self.client.search_music()
+                GLib.idle_add(self._apply_refresh, fresh)
+            else:
+                # Kein Cache: seitenweise laden mit Fortschrittsbalken
+                all_tracks = []
 
-            self.client.search_music(on_page=on_page)
-            GLib.idle_add(self._populate_tracks, all_tracks)
+                def on_page(page, loaded, total):
+                    all_tracks.extend(page)
+                    fraction = loaded / total if total else 0
+                    GLib.idle_add(self._on_load_page, list(page), loaded, total, fraction)
+
+                self.client.search_music(on_page=on_page)
+                GLib.idle_add(self._populate_tracks, all_tracks)
+
         except requests.exceptions.ConnectionError:
             GLib.idle_add(self.load_bar.hide)
             GLib.idle_add(self.lib_status.set_text,
@@ -484,6 +496,58 @@ class MainWindow(Gtk.ApplicationWindow):
             GLib.idle_add(self.load_bar.hide)
             GLib.idle_add(self.lib_status.set_text, f"Fehler: {e}")
 
+    def _apply_cache(self, tracks):
+        self.all_tracks = tracks
+        for t in tracks:
+            artist = track_artist(t)
+            self.track_store.append([
+                t["Id"], t.get("Name", ""), artist, t.get("Album", ""),
+                t.get("_dur", ""), artist, t.get("ParentId", ""),
+            ])
+        self._fill_artist_store()
+        self.load_bar.hide()
+        self.lib_status.set_text(f"{len(tracks)} Tracks (Cache) – aktualisiere…")
+
+    def _apply_refresh(self, fresh_tracks):
+        existing_ids = {t["Id"] for t in self.all_tracks}
+        fresh_ids = {t["Id"] for t in fresh_tracks}
+
+        new_tracks = [t for t in fresh_tracks if t["Id"] not in existing_ids]
+        removed_ids = existing_ids - fresh_ids
+
+        if new_tracks:
+            for t in new_tracks:
+                artist = track_artist(t)
+                dur = self.client.format_duration(t.get("RunTimeTicks", 0)) if self.client else ""
+                t["_dur"] = dur
+                self.all_tracks.append(t)
+                self.track_store.append([
+                    t["Id"], t.get("Name", ""), artist, t.get("Album", ""),
+                    dur, artist, t.get("ParentId", ""),
+                ])
+
+        if removed_ids:
+            self.all_tracks = [t for t in self.all_tracks if t["Id"] not in removed_ids]
+            it = self.track_store.get_iter_first()
+            while it:
+                if self.track_store[it][0] in removed_ids:
+                    it = self.track_store.remove(it)
+                else:
+                    it = self.track_store.iter_next(it)
+
+        if new_tracks or removed_ids:
+            self._fill_artist_store()
+
+        save_library_cache(self.config["server_url"], self.all_tracks)
+
+        changes = []
+        if new_tracks:
+            changes.append(f"+{len(new_tracks)} neu")
+        if removed_ids:
+            changes.append(f"-{len(removed_ids)} entfernt")
+        suffix = f" ({', '.join(changes)})" if changes else ""
+        self.lib_status.set_text(f"{len(self.all_tracks)} Tracks{suffix}")
+
     def _on_load_page(self, page, loaded, total, fraction):
         self.load_bar.set_fraction(fraction)
         self.lib_status.set_text(f"Lade… {loaded} / {total}")
@@ -491,11 +555,11 @@ class MainWindow(Gtk.ApplicationWindow):
             return
         for t in page:
             artist = track_artist(t)
+            dur = self.client.format_duration(t.get("RunTimeTicks", 0))
+            t["_dur"] = dur
             self.track_store.append([
                 t["Id"], t.get("Name", ""), artist, t.get("Album", ""),
-                self.client.format_duration(t.get("RunTimeTicks", 0)),
-                artist,                  # col 5: ArtistKey (für Filter)
-                t.get("ParentId", ""),   # col 6: ParentId  (für Filter)
+                dur, artist, t.get("ParentId", ""),
             ])
 
     def _populate_tracks(self, tracks):
@@ -504,6 +568,10 @@ class MainWindow(Gtk.ApplicationWindow):
         if self.client.api_key and self.client.api_key != self.config.get("api_key"):
             self.config["api_key"] = self.client.api_key
             save_config({k: v for k, v in self.config.items() if k != "password"})
+        # _dur für Cache-Kompatibilität setzen
+        for t in tracks:
+            t["_dur"] = self.client.format_duration(t.get("RunTimeTicks", 0))
+        save_library_cache(self.config["server_url"], tracks)
         self._fill_artist_store()
         self.lib_status.set_text(f"{len(tracks)} Tracks geladen")
 
