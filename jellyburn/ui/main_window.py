@@ -228,17 +228,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.set_titlebar(header)
         self._load_icon()
 
-    def _load_icon(self):
-        import os
-        icon_path = os.path.join(os.path.dirname(__file__), "..", "icons", "jellyburn.svg")
-        icon_path = os.path.normpath(icon_path)
-        if os.path.exists(icon_path):
-            try:
-                pb = GdkPixbuf.Pixbuf.new_from_file_at_size(icon_path, 64, 64)
-                self.set_icon(pb)
-            except Exception:
-                pass
-
         btn_settings = Gtk.Button.new_from_icon_name("preferences-system-symbolic", Gtk.IconSize.BUTTON)
         btn_settings.set_tooltip_text("Einstellungen")
         btn_settings.connect("clicked", self._open_settings)
@@ -466,6 +455,18 @@ class MainWindow(Gtk.ApplicationWindow):
         right.pack_start(self.burn_btn, False, False, 0)
 
         paned.pack2(right, resize=False, shrink=False)
+
+    def _load_icon(self):
+        import os
+        icon_path = os.path.normpath(
+            os.path.join(os.path.dirname(__file__), "..", "icons", "jellyburn.svg")
+        )
+        if os.path.exists(icon_path):
+            try:
+                pb = GdkPixbuf.Pixbuf.new_from_file_at_size(icon_path, 64, 64)
+                self.set_icon(pb)
+            except Exception:
+                pass
 
     # ── Verbindung ──
     def _connect(self):
