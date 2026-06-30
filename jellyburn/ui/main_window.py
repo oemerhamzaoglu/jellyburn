@@ -224,7 +224,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _build_ui(self):
         header = Gtk.HeaderBar(show_close_button=True)
         header.set_title("Jellyburn")
-        header.set_subtitle("Jellyfin → CD")
+        header.set_subtitle("")
         self.set_titlebar(header)
 
         btn_settings = Gtk.Button.new_from_icon_name("preferences-system-symbolic", Gtk.IconSize.BUTTON)
