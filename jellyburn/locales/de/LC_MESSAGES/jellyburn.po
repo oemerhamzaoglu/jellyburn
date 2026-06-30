@@ -15,6 +15,9 @@ msgstr "Abbrechen"
 msgid "Save"
 msgstr "Speichern"
 
+msgid "Open"
+msgstr "Öffnen"
+
 msgid "Server URL:"
 msgstr "Server-URL:"
 
@@ -49,9 +52,6 @@ msgid "Language:"
 msgstr "Sprache:"
 
 # Main window
-msgid "Settings"
-msgstr "Einstellungen"
-
 msgid "Mini Player"
 msgstr "Mini-Player"
 
@@ -136,15 +136,6 @@ msgstr "Lade… {loaded} / {total}"
 msgid "{n} tracks loaded"
 msgstr "{n} Tracks geladen"
 
-msgid "Save playlist"
-msgstr "Playlist speichern"
-
-msgid "Load playlist"
-msgstr "Playlist laden"
-
-msgid "Open"
-msgstr "Öffnen"
-
 msgid "JSON files"
 msgstr "JSON-Dateien"
 
@@ -226,9 +217,6 @@ msgstr "Brenner-Fehler (Code {code}) – Speicher-Lock-Problem.\n\nLösung: cdrs
 
 msgid "Burn error (code {code}):\n{output}"
 msgstr "Brenner-Fehler (Code {code}):\n{output}"
-
-msgid "Error: {error}"
-msgstr "Fehler: {error}"
 
 # Startup warnings
 msgid "Missing system dependencies"
