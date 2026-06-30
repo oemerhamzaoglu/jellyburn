@@ -307,7 +307,10 @@ class MainWindow(Gtk.ApplicationWindow):
             self._track_cols[key] = c
             self.track_view.append_column(c)
 
-        self.track_view.connect("button-press-event", self._on_track_header_click)
+        # Rechtsklick-Menü an jeden Spaltenheader-Button hängen
+        for key, c in self._track_cols.items():
+            c.get_button().connect("button-press-event",
+                                   lambda w, e, k=key: self._on_track_header_click(w, e))
 
         self.track_view.get_selection().set_mode(Gtk.SelectionMode.MULTIPLE)
         self.track_view.connect("row-activated", self._on_track_activated)
@@ -787,11 +790,7 @@ class MainWindow(Gtk.ApplicationWindow):
             menu.popup_at_pointer(event)
 
     def _on_track_header_click(self, widget, event):
-        from gi.repository import Gdk
         if event.button != 3:
-            return False
-        # Nur reagieren wenn Klick auf Spaltenheader (y nahe 0)
-        if event.y > 24:
             return False
         menu = Gtk.Menu()
         for key, _, title, _, always in self._col_defs:
