@@ -367,6 +367,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.pl_view.set_reorderable(True)
         self.pl_view.connect("button-press-event", self._on_pl_right_click)
+        self.pl_view.connect("key-press-event", self._on_pl_key)
         self.pl_store.connect("row-deleted", self._sync_playlist_from_store)
         sw2.add(self.pl_view)
         right.pack_start(sw2, True, True, 0)
@@ -779,6 +780,12 @@ class MainWindow(Gtk.ApplicationWindow):
         self.playlist_tracks = [id_to_track[row[0]] for row in self.pl_store if row[0] in id_to_track]
         self._renumber_playlist()
         self._update_cd_counter()
+
+    def _on_pl_key(self, widget, event):
+        from gi.repository import Gdk
+        if event.keyval in (Gdk.KEY_Delete, Gdk.KEY_KP_Delete):
+            self._remove_from_playlist(None)
+            return True
 
     def _remove_from_playlist(self, _):
         self._ignore_store_signals = True
