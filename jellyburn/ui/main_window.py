@@ -937,9 +937,11 @@ class MainWindow(Gtk.ApplicationWindow):
     # ── Einstellungen ──
     def _open_settings(self, _btn):
         dlg = SettingsDialog(self, self.config)
-        if dlg.run() == Gtk.ResponseType.OK:
-            vals = dlg.get_values()
-            lang_changed = vals.get("language") != self.config.get("language", "en")
+        response = dlg.run()
+        vals = dlg.get_values()
+        lang_changed = vals.get("language") != self.config.get("language", "en")
+        dlg.destroy()
+        if response == Gtk.ResponseType.OK:
             self.config.update(vals)
             save_config({k: v for k, v in self.config.items() if k != "password"})
             if lang_changed:
@@ -953,7 +955,6 @@ class MainWindow(Gtk.ApplicationWindow):
                 info.run()
                 info.destroy()
             self._connect()
-        dlg.destroy()
 
     # ── Brennen ──
     def _start_burn(self, _btn):
