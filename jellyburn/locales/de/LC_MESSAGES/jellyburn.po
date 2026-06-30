@@ -1,0 +1,241 @@
+# German translations for Jellyburn
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: de\n"
+
+# Settings dialog
+msgid "Settings"
+msgstr "Einstellungen"
+
+msgid "Cancel"
+msgstr "Abbrechen"
+
+msgid "Save"
+msgstr "Speichern"
+
+msgid "Server URL:"
+msgstr "Server-URL:"
+
+msgid "Optional if API key is set"
+msgstr "Optional wenn API-Key gesetzt"
+
+msgid "Username:"
+msgstr "Benutzername:"
+
+msgid "Password (used once for login)"
+msgstr "Passwort (einmalig zum Login)"
+
+msgid "Password:"
+msgstr "Passwort:"
+
+msgid "API key from Jellyfin dashboard"
+msgstr "API-Key aus Jellyfin-Dashboard"
+
+msgid "API Key:"
+msgstr "API-Key:"
+
+msgid "No optical drive detected – enter path manually"
+msgstr "Kein optisches Laufwerk erkannt – Pfad manuell eingeben"
+
+msgid "CD Drive:"
+msgstr "CD-Laufwerk:"
+
+msgid "Burn Speed:"
+msgstr "Brenngeschwindigkeit:"
+
+msgid "Language:"
+msgstr "Sprache:"
+
+# Main window
+msgid "Settings"
+msgstr "Einstellungen"
+
+msgid "Mini Player"
+msgstr "Mini-Player"
+
+msgid "Reconnect"
+msgstr "Neu verbinden"
+
+msgid "Search…"
+msgstr "Suchen…"
+
+msgid "Artists"
+msgstr "Künstler"
+
+msgid "Albums"
+msgstr "Alben"
+
+msgid "Title"
+msgstr "Titel"
+
+msgid "Artist"
+msgstr "Künstler"
+
+msgid "Album"
+msgstr "Album"
+
+msgid "Length"
+msgstr "Länge"
+
+msgid "Not connected"
+msgstr "Nicht verbunden"
+
+msgid "Load playlist"
+msgstr "Playlist laden"
+
+msgid "Save playlist"
+msgstr "Playlist speichern"
+
+msgid "Clear"
+msgstr "Leeren"
+
+msgid "+ Add selection"
+msgstr "+ Auswahl hinzufügen"
+
+msgid "● BURN CD"
+msgstr "● CD BRENNEN"
+
+msgid "All artists"
+msgstr "Alle Künstler"
+
+msgid "All albums"
+msgstr "Alle Alben"
+
+msgid "Remove from playlist"
+msgstr "Aus Playlist entfernen"
+
+msgid "Connecting…"
+msgstr "Verbinde…"
+
+msgid "Connection failed – is the server reachable?"
+msgstr "Verbindung fehlgeschlagen – Server erreichbar?"
+
+msgid "Timeout – server not responding."
+msgstr "Timeout – Server antwortet nicht."
+
+msgid "Invalid credentials."
+msgstr "Ungültige Zugangsdaten."
+
+msgid "Error: {error}"
+msgstr "Fehler: {error}"
+
+msgid "{n} tracks (cache) – refreshing…"
+msgstr "{n} Tracks (Cache) – aktualisiere…"
+
+msgid "new"
+msgstr "neu"
+
+msgid "removed"
+msgstr "entfernt"
+
+msgid "Loading… {loaded} / {total}"
+msgstr "Lade… {loaded} / {total}"
+
+msgid "{n} tracks loaded"
+msgstr "{n} Tracks geladen"
+
+msgid "Save playlist"
+msgstr "Playlist speichern"
+
+msgid "Load playlist"
+msgstr "Playlist laden"
+
+msgid "Open"
+msgstr "Öffnen"
+
+msgid "JSON files"
+msgstr "JSON-Dateien"
+
+msgid "Save failed: {error}"
+msgstr "Speichern fehlgeschlagen: {error}"
+
+msgid "Invalid format"
+msgstr "Ungültiges Format"
+
+msgid "Load failed: {error}"
+msgstr "Laden fehlgeschlagen: {error}"
+
+msgid "TOO LONG"
+msgstr "ZU LANG"
+
+msgid "Playlist too long!"
+msgstr "Playlist zu lang!"
+
+msgid "The playlist is {duration} long – a CD holds only 74:00. Try anyway?"
+msgstr "Die Playlist ist {duration} lang – eine CD fasst nur 74:00. Trotzdem versuchen?"
+
+msgid "Language changed"
+msgstr "Sprache geändert"
+
+msgid "Please restart Jellyburn for the language change to take effect."
+msgstr "Bitte starte Jellyburn neu, damit die Sprachänderung wirksam wird."
+
+# Burn dialog
+msgid "Burn CD"
+msgstr "CD brennen"
+
+msgid "Tracks on CD:"
+msgstr "Tracks auf CD:"
+
+msgid "Ready to burn."
+msgstr "Bereit zum Brennen."
+
+msgid "Burn now"
+msgstr "Jetzt brennen"
+
+msgid "Close"
+msgstr "Schließen"
+
+msgid "Missing programs: "
+msgstr "Fehlende Programme: "
+
+msgid "Downloading: {artist} - {name} ({i}/{total})"
+msgstr "Lade: {artist} - {name} ({i}/{total})"
+
+msgid "Download {i}/{total}"
+msgstr "Download {i}/{total}"
+
+msgid "Converting: {name}"
+msgstr "Konvertiere: {name}"
+
+msgid "Conversion failed: {name}\n{error}"
+msgstr "Konvertierung fehlgeschlagen: {name}\n{error}"
+
+msgid "Converted {i}/{total}"
+msgstr "Konvertiert {i}/{total}"
+
+msgid "Starting burn – please do not cancel…"
+msgstr "Starte Brennvorgang – bitte nicht abbrechen…"
+
+msgid "Burning…"
+msgstr "Brennen…"
+
+msgid "No burn program found.\nPlease install: sudo apt install cdrskin"
+msgstr "Kein Brennprogramm gefunden.\nBitte installieren: sudo apt install cdrskin"
+
+msgid "CD burned successfully!"
+msgstr "CD erfolgreich gebrannt!"
+
+msgid "Done!"
+msgstr "Fertig!"
+
+msgid "Burn error (code {code}) – memory lock problem.\n\nFix: install cdrskin (recommended):\n  sudo apt install cdrskin\n\nOr set permissions for wodim:\n  sudo setcap cap_ipc_lock+ep $(which wodim)\n\nOutput:\n{output}"
+msgstr "Brenner-Fehler (Code {code}) – Speicher-Lock-Problem.\n\nLösung: cdrskin installieren (empfohlen):\n  sudo apt install cdrskin\n\nOder Rechte für wodim setzen:\n  sudo setcap cap_ipc_lock+ep $(which wodim)\n\nAusgabe:\n{output}"
+
+msgid "Burn error (code {code}):\n{output}"
+msgstr "Brenner-Fehler (Code {code}):\n{output}"
+
+msgid "Error: {error}"
+msgstr "Fehler: {error}"
+
+# Startup warnings
+msgid "Missing system dependencies"
+msgstr "Fehlende Systemabhängigkeiten"
+
+msgid "The following programs were not found:"
+msgstr "Folgende Programme wurden nicht gefunden:"
+
+msgid "Please install them to enable all features."
+msgstr "Bitte installieren, damit alle Funktionen verfügbar sind."

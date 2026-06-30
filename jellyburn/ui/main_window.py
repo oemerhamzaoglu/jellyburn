@@ -13,6 +13,7 @@ from ..config import (
     check_dependencies, seconds_to_mmss,
     load_library_cache, save_library_cache,
 )
+from ..i18n import _
 from ..player import Player
 from .mini_player import MiniPlayer
 from .settings_dialog import SettingsDialog
@@ -229,17 +230,17 @@ class MainWindow(Gtk.ApplicationWindow):
         self._load_icon()
 
         btn_settings = Gtk.Button.new_from_icon_name("preferences-system-symbolic", Gtk.IconSize.BUTTON)
-        btn_settings.set_tooltip_text("Einstellungen")
+        btn_settings.set_tooltip_text(_("Settings"))
         btn_settings.connect("clicked", self._open_settings)
         header.pack_end(btn_settings)
 
         btn_mini = Gtk.Button.new_from_icon_name("view-restore-symbolic", Gtk.IconSize.BUTTON)
-        btn_mini.set_tooltip_text("Mini-Player")
+        btn_mini.set_tooltip_text(_("Mini Player"))
         btn_mini.connect("clicked", self._toggle_mini)
         header.pack_end(btn_mini)
 
         btn_connect = Gtk.Button.new_from_icon_name("network-transmit-receive-symbolic", Gtk.IconSize.BUTTON)
-        btn_connect.set_tooltip_text("Neu verbinden")
+        btn_connect.set_tooltip_text(_("Reconnect"))
         btn_connect.connect("clicked", lambda _: self._connect())
         header.pack_end(btn_connect)
 
@@ -251,7 +252,7 @@ class MainWindow(Gtk.ApplicationWindow):
         left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 
         search_box = Gtk.Box(spacing=6, margin=8)
-        self.search_entry = Gtk.SearchEntry(placeholder_text="Suchen…")
+        self.search_entry = Gtk.SearchEntry(placeholder_text=_("Search…"))
         self.search_entry.connect("search-changed", self._on_search)
         search_box.pack_start(self.search_entry, True, True, 0)
         left.pack_start(search_box, False, False, 0)
@@ -275,11 +276,11 @@ class MainWindow(Gtk.ApplicationWindow):
 
         # cols: 0=Id  1=Name
         self.artist_store = Gtk.ListStore(str, str)
-        artist_sw, self.artist_view = _browser_col(self.artist_store, "Künstler")
+        artist_sw, self.artist_view = _browser_col(self.artist_store, _("Artists"))
         self.artist_view.get_selection().connect("changed", self._on_artist_selected)
 
         self.album_store = Gtk.ListStore(str, str)
-        album_sw, self.album_view = _browser_col(self.album_store, "Alben")
+        album_sw, self.album_view = _browser_col(self.album_store, _("Albums"))
         self.album_view.get_selection().connect("changed", self._on_album_selected)
 
         browser_paned.pack1(artist_sw, resize=True, shrink=False)
@@ -300,9 +301,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self.track_view.set_activate_on_single_click(False)
         self.track_view.set_rules_hint(True)
 
-        for title, col, expand in [("#", 1, False), ("Titel", 2, True),
-                                    ("Künstler", 3, True), ("Album", 4, True),
-                                    ("Länge", 5, False)]:
+        for title, col, expand in [("#", 1, False), (_("Title"), 2, True),
+                                    (_("Artist"), 3, True), (_("Album"), 4, True),
+                                    (_("Length"), 5, False)]:
             rend = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
             if title == "#":
                 rend.set_property("xalign", 1.0)
@@ -322,7 +323,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.load_bar.set_no_show_all(True)
         left.pack_start(self.load_bar, False, False, 0)
 
-        self.lib_status = Gtk.Label(label="Nicht verbunden", xalign=0, margin=4)
+        self.lib_status = Gtk.Label(label=_("Not connected"), xalign=0, margin=4)
         self.lib_status.get_style_context().add_class("lib-status")
         left.pack_start(self.lib_status, False, False, 0)
 
@@ -338,15 +339,15 @@ class MainWindow(Gtk.ApplicationWindow):
         pl_header.pack_start(pl_label, True, True, 0)
 
         for icon, tip, cb in [
-            ("document-open-symbolic", "Playlist laden", self._load_playlist),
-            ("document-save-symbolic", "Playlist speichern", self._save_playlist),
+            ("document-open-symbolic", _("Load playlist"), self._load_playlist),
+            ("document-save-symbolic", _("Save playlist"), self._save_playlist),
         ]:
             b = Gtk.Button.new_from_icon_name(icon, Gtk.IconSize.SMALL_TOOLBAR)
             b.set_tooltip_text(tip)
             b.connect("clicked", cb)
             pl_header.pack_start(b, False, False, 0)
 
-        btn_clear = Gtk.Button(label="Leeren")
+        btn_clear = Gtk.Button(label=_("Clear"))
         btn_clear.connect("clicked", self._clear_playlist)
         pl_header.pack_start(btn_clear, False, False, 0)
         right.pack_start(pl_header, False, False, 0)
@@ -387,7 +388,7 @@ class MainWindow(Gtk.ApplicationWindow):
         sw2.add(self.pl_view)
         right.pack_start(sw2, True, True, 0)
 
-        btn_add = Gtk.Button(label="+ Auswahl hinzufügen")
+        btn_add = Gtk.Button(label=_("+ Add selection"))
         btn_add.set_margin_start(8)
         btn_add.set_margin_end(8)
         btn_add.set_margin_top(4)
@@ -444,7 +445,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         right.pack_start(np_box, False, False, 0)
 
-        self.burn_btn = Gtk.Button(label="● CD BRENNEN")
+        self.burn_btn = Gtk.Button(label=_("● BURN CD"))
         self.burn_btn.set_margin_start(8)
         self.burn_btn.set_margin_end(8)
         self.burn_btn.set_margin_bottom(8)
@@ -478,7 +479,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.album_store.clear()
         self.load_bar.set_fraction(0)
         self.load_bar.show()
-        self.lib_status.set_text("Verbinde…")
+        self.lib_status.set_text(_("Connecting…"))
         threading.Thread(target=self._connect_thread, daemon=True).start()
 
     def _connect_thread(self):
@@ -512,18 +513,18 @@ class MainWindow(Gtk.ApplicationWindow):
         except requests.exceptions.ConnectionError:
             GLib.idle_add(self.load_bar.hide)
             GLib.idle_add(self.lib_status.set_text,
-                          "Verbindung fehlgeschlagen – Server erreichbar?")
+                          _("Connection failed – is the server reachable?"))
         except requests.exceptions.Timeout:
             GLib.idle_add(self.load_bar.hide)
-            GLib.idle_add(self.lib_status.set_text, "Timeout – Server antwortet nicht.")
+            GLib.idle_add(self.lib_status.set_text, _("Timeout – server not responding."))
         except requests.exceptions.HTTPError as e:
             code = e.response.status_code if e.response is not None else "?"
-            msg = "Ungültige Zugangsdaten." if code == 401 else f"HTTP {code}"
+            msg = _("Invalid credentials.") if code == 401 else f"HTTP {code}"
             GLib.idle_add(self.load_bar.hide)
             GLib.idle_add(self.lib_status.set_text, msg)
         except Exception as e:
             GLib.idle_add(self.load_bar.hide)
-            GLib.idle_add(self.lib_status.set_text, f"Fehler: {e}")
+            GLib.idle_add(self.lib_status.set_text, _("Error: {error}").format(error=e))
 
     def _apply_cache(self, tracks):
         self.all_tracks = tracks
@@ -535,7 +536,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 t.get("_dur", ""), artist, t.get("ParentId", ""),
             ])
         self.load_bar.hide()
-        self.lib_status.set_text(f"{len(tracks)} Tracks (Cache) – aktualisiere…")
+        self.lib_status.set_text(_("{n} tracks (cache) – refreshing…").format(n=len(tracks)))
         # Nächster Idle-Zyklus: GTK hat den Store dann vollständig verarbeitet
         GLib.idle_add(self._fill_artist_store)
 
@@ -573,15 +574,15 @@ class MainWindow(Gtk.ApplicationWindow):
 
         changes = []
         if new_tracks:
-            changes.append(f"+{len(new_tracks)} neu")
+            changes.append(f"+{len(new_tracks)} {_('new')}")
         if removed_ids:
-            changes.append(f"-{len(removed_ids)} entfernt")
+            changes.append(f"-{len(removed_ids)} {_('removed')}")
         suffix = f" ({', '.join(changes)})" if changes else ""
-        self.lib_status.set_text(f"{len(self.all_tracks)} Tracks{suffix}")
+        self.lib_status.set_text(f"{len(self.all_tracks)} tracks{suffix}")
 
     def _on_load_page(self, page, loaded, total, fraction):
         self.load_bar.set_fraction(fraction)
-        self.lib_status.set_text(f"Lade… {loaded} / {total}")
+        self.lib_status.set_text(_("Loading… {loaded} / {total}").format(loaded=loaded, total=total))
         if not self.client:
             return
         for t in page:
@@ -605,7 +606,7 @@ class MainWindow(Gtk.ApplicationWindow):
             t["_dur"] = self.client.format_duration(t.get("RunTimeTicks", 0))
         save_library_cache(self.config["server_url"], tracks)
         self._fill_artist_store()
-        self.lib_status.set_text(f"{len(tracks)} Tracks geladen")
+        self.lib_status.set_text(_("{n} tracks loaded").format(n=len(tracks)))
 
     def _track_visible(self, model, it, _data):
         if self._filter_query:
@@ -623,7 +624,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._browser_loading = True
         seen = set()
         self.artist_store.clear()
-        self.artist_store.append(("", "Alle Künstler"))
+        self.artist_store.append(("", _("All artists")))
         for t in self.all_tracks:
             name = track_artist(t)
             if name and name not in seen:
@@ -638,7 +639,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._browser_loading = True
         seen = {}
         self.album_store.clear()
-        self.album_store.append(("", "Alle Alben"))
+        self.album_store.append(("", _("All albums")))
         for t in tracks:
             pid = t.get("ParentId", "")
             if pid and pid not in seen:
@@ -797,7 +798,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _on_pl_right_click(self, widget, event):
         if event.button == 3:
             menu = Gtk.Menu()
-            item_remove = Gtk.MenuItem(label="Aus Playlist entfernen")
+            item_remove = Gtk.MenuItem(label=_("Remove from playlist"))
             item_remove.connect("activate", self._remove_from_playlist)
             menu.append(item_remove)
             menu.show_all()
@@ -844,14 +845,14 @@ class MainWindow(Gtk.ApplicationWindow):
         if not self.playlist_tracks:
             return
         dlg = Gtk.FileChooserDialog(
-            title="Playlist speichern", transient_for=self,
+            title=_("Save playlist"), transient_for=self,
             action=Gtk.FileChooserAction.SAVE,
         )
-        dlg.add_buttons("Abbrechen", Gtk.ResponseType.CANCEL, "Speichern", Gtk.ResponseType.OK)
+        dlg.add_buttons(_("Cancel"), Gtk.ResponseType.CANCEL, _("Save"), Gtk.ResponseType.OK)
         dlg.set_current_name("playlist.json")
         dlg.set_do_overwrite_confirmation(True)
         ff = Gtk.FileFilter()
-        ff.set_name("JSON-Dateien")
+        ff.set_name(_("JSON files"))
         ff.add_pattern("*.json")
         dlg.add_filter(ff)
         if dlg.run() == Gtk.ResponseType.OK:
@@ -862,17 +863,17 @@ class MainWindow(Gtk.ApplicationWindow):
                 with open(path, "w") as f:
                     json.dump(self.playlist_tracks, f, indent=2)
             except OSError as e:
-                self._show_error(f"Speichern fehlgeschlagen: {e}")
+                self._show_error(_("Save failed: {error}").format(error=e))
         dlg.destroy()
 
     def _load_playlist(self, _):
         dlg = Gtk.FileChooserDialog(
-            title="Playlist laden", transient_for=self,
+            title=_("Load playlist"), transient_for=self,
             action=Gtk.FileChooserAction.OPEN,
         )
-        dlg.add_buttons("Abbrechen", Gtk.ResponseType.CANCEL, "Öffnen", Gtk.ResponseType.OK)
+        dlg.add_buttons(_("Cancel"), Gtk.ResponseType.CANCEL, _("Open"), Gtk.ResponseType.OK)
         ff = Gtk.FileFilter()
-        ff.set_name("JSON-Dateien")
+        ff.set_name(_("JSON files"))
         ff.add_pattern("*.json")
         dlg.add_filter(ff)
         if dlg.run() == Gtk.ResponseType.OK:
@@ -881,7 +882,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 with open(path) as f:
                     tracks = json.load(f)
                 if not isinstance(tracks, list):
-                    raise ValueError("Ungültiges Format")
+                    raise ValueError(_("Invalid format"))
                 self._clear_playlist(None)
                 for track in tracks:
                     if not isinstance(track, dict) or "Id" not in track:
@@ -894,7 +895,7 @@ class MainWindow(Gtk.ApplicationWindow):
                                           track.get("Name", ""), track_artist(track), dur])
                 self._update_cd_counter()
             except (OSError, json.JSONDecodeError, ValueError) as e:
-                self._show_error(f"Laden fehlgeschlagen: {e}")
+                self._show_error(_("Load failed: {error}").format(error=e))
         dlg.destroy()
 
     def _show_error(self, msg):
@@ -924,7 +925,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if total_s > CD_MAX_SECONDS:
             ctx.add_class("cd-red")
             ctr_ctx.add_class("over-limit")
-            self.cd_counter.set_text(f"{seconds_to_mmss(total_s)} / 74:00  ⚠ ZU LANG")
+            self.cd_counter.set_text(f"{seconds_to_mmss(total_s)} / 74:00  ⚠ " + _("TOO LONG"))
         elif fraction > 0.85:
             ctx.add_class("cd-yellow")
             self.cd_counter.set_text(f"{seconds_to_mmss(total_s)} / 74:00")
@@ -938,8 +939,19 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg = SettingsDialog(self, self.config)
         if dlg.run() == Gtk.ResponseType.OK:
             vals = dlg.get_values()
+            lang_changed = vals.get("language") != self.config.get("language", "en")
             self.config.update(vals)
             save_config({k: v for k, v in self.config.items() if k != "password"})
+            if lang_changed:
+                info = Gtk.MessageDialog(
+                    transient_for=self, modal=True,
+                    message_type=Gtk.MessageType.INFO,
+                    buttons=Gtk.ButtonsType.OK,
+                    text=_("Language changed"),
+                )
+                info.format_secondary_text(_("Please restart Jellyburn for the language change to take effect."))
+                info.run()
+                info.destroy()
             self._connect()
         dlg.destroy()
 
@@ -952,10 +964,10 @@ class MainWindow(Gtk.ApplicationWindow):
             dlg = Gtk.MessageDialog(
                 transient_for=self, modal=True, message_type=Gtk.MessageType.WARNING,
                 buttons=Gtk.ButtonsType.OK_CANCEL,
-                text="Playlist zu lang!",
+                text=_("Playlist too long!"),
             )
             dlg.format_secondary_text(
-                f"Die Playlist ist {seconds_to_mmss(total_s)} lang – eine CD fasst nur 74:00. Trotzdem versuchen?"
+                _("The playlist is {duration} long – a CD holds only 74:00. Try anyway?").format(duration=seconds_to_mmss(total_s))
             )
             resp = dlg.run()
             dlg.destroy()

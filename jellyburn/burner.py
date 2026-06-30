@@ -21,11 +21,12 @@ from gi.repository import Gtk, GLib
 
 from .api import track_artist
 from .config import check_dependencies, get_burn_tool
+from .i18n import _
 
 
 class BurnDialog(Gtk.Dialog):
     def __init__(self, parent, playlist, client, config):
-        super().__init__(title="CD brennen", transient_for=parent, modal=True)
+        super().__init__(title=_("Burn CD"), transient_for=parent, modal=True)
         self.set_default_size(500, 400)
         self.playlist = playlist
         self.client = client
@@ -40,7 +41,7 @@ class BurnDialog(Gtk.Dialog):
         box.set_margin_top(16)
         box.set_margin_bottom(16)
 
-        box.pack_start(Gtk.Label(label="<b>Tracks auf CD:</b>", use_markup=True, xalign=0), False, False, 0)
+        box.pack_start(Gtk.Label(label=f"<b>{_('Tracks on CD:')}</b>", use_markup=True, xalign=0), False, False, 0)
 
         sw = Gtk.ScrolledWindow()
         sw.set_min_content_height(150)
@@ -55,7 +56,7 @@ class BurnDialog(Gtk.Dialog):
         sw.add(tv)
         box.pack_start(sw, True, True, 0)
 
-        self.status_label = Gtk.Label(label="Bereit zum Brennen.", xalign=0)
+        self.status_label = Gtk.Label(label=_("Ready to burn."), xalign=0)
         self.status_label.set_line_wrap(True)
         box.pack_start(self.status_label, False, False, 0)
 
@@ -66,11 +67,11 @@ class BurnDialog(Gtk.Dialog):
         btn_box = Gtk.Box(spacing=8, halign=Gtk.Align.END)
         btn_box.set_margin_top(4)
 
-        self.cancel_btn = Gtk.Button(label="Abbrechen")
+        self.cancel_btn = Gtk.Button(label=_("Cancel"))
         self.cancel_btn.connect("clicked", self._on_cancel)
         btn_box.pack_start(self.cancel_btn, False, False, 0)
 
-        self.burn_btn = Gtk.Button(label="Jetzt brennen")
+        self.burn_btn = Gtk.Button(label=_("Burn now"))
         self.burn_btn.get_style_context().add_class("suggested-action")
         self.burn_btn.connect("clicked", self._on_burn_clicked)
         btn_box.pack_start(self.burn_btn, False, False, 0)
@@ -81,7 +82,7 @@ class BurnDialog(Gtk.Dialog):
     def _on_burn_clicked(self, _):
         missing = check_dependencies()
         if missing:
-            self._set_status("Fehlende Programme: " + ", ".join(missing))
+            self._set_status(_("Missing programs: ") + ", ".join(missing))
             return
         self.burn_btn.set_sensitive(False)
         self.cancel_btn.set_sensitive(False)
@@ -96,7 +97,7 @@ class BurnDialog(Gtk.Dialog):
 
     def _on_burn_done(self):
         self._burning = False
-        self.cancel_btn.set_label("Schließen")
+        self.cancel_btn.set_label(_("Close"))
         self.cancel_btn.set_sensitive(True)
 
     def _set_status(self, text):
@@ -120,8 +121,8 @@ class BurnDialog(Gtk.Dialog):
                     return
                 name = track.get("Name", f"track_{i+1}")
                 artist = track_artist(track)
-                self._set_status(f"Lade: {artist} - {name} ({i+1}/{total})")
-                self._set_progress(i / total / 2, f"Download {i+1}/{total}")
+                self._set_status(_("Downloading: {artist} - {name} ({i}/{total})").format(artist=artist, name=name, i=i+1, total=total))
+                self._set_progress(i / total / 2, _("Download {i}/{total}").format(i=i+1, total=total))
 
                 url = self.client.get_download_url(track["Id"])
                 resp = self.client.session.get(url, stream=True)
@@ -133,7 +134,7 @@ class BurnDialog(Gtk.Dialog):
                         f.write(chunk)
 
                 wav_path = os.path.join(tmpdir, f"track_{i+1:02d}.wav")
-                self._set_status(f"Konvertiere: {name}")
+                self._set_status(_("Converting: {name}").format(name=name))
                 result = subprocess.run(
                     ["ffmpeg", "-y", "-i", src_path,
                      "-ar", "44100", "-ac", "2", "-f", "wav", wav_path],
@@ -141,24 +142,24 @@ class BurnDialog(Gtk.Dialog):
                 )
                 if result.returncode != 0:
                     self._set_status(
-                        f"Konvertierung fehlgeschlagen: {name}\n{result.stderr.strip()[-400:]}"
+                        _("Conversion failed: {name}\n{error}").format(name=name, error=result.stderr.strip()[-400:])
                     )
                     return
                 wav_files.append(wav_path)
                 os.unlink(src_path)
-                self._set_progress((i + 1) / total / 2, f"Konvertiert {i+1}/{total}")
+                self._set_progress((i + 1) / total / 2, _("Converted {i}/{total}").format(i=i+1, total=total))
 
             if self.cancelled:
                 return
 
-            self._set_status("Starte Brennvorgang – bitte nicht abbrechen...")
-            self._set_progress(0.5, "Brennen...")
+            self._set_status(_("Starting burn – please do not cancel…"))
+            self._set_progress(0.5, _("Burning…"))
 
             device = resolve_sg_device(self.config.get("cd_device", "/dev/sr0"))
             speed = self.config.get("burn_speed", 4)
             burn_tool = get_burn_tool()
             if not burn_tool:
-                self._set_status("Kein Brennprogramm gefunden.\nBitte installieren: sudo apt install cdrskin")
+                self._set_status(_("No burn program found.\nPlease install: sudo apt install cdrskin"))
                 return
             cmd = [burn_tool, f"dev={device}", f"speed={speed}", "-v", "-dao", "-audio", "-pad"] + wav_files
 
@@ -184,25 +185,25 @@ class BurnDialog(Gtk.Dialog):
 
             proc.wait()
             if proc.returncode == 0:
-                self._set_status("CD erfolgreich gebrannt!")
-                self._set_progress(1.0, "Fertig!")
+                self._set_status(_("CD burned successfully!"))
+                self._set_progress(1.0, _("Done!"))
             else:
                 full = "\n".join(output_lines[-20:])
                 if "RLIMIT_MEMLOCK" in full or "mmap" in full:
                     hint = (
-                        f"Brenner-Fehler (Code {proc.returncode}) – Speicher-Lock-Problem.\n\n"
-                        "Lösung: cdrskin installieren (empfohlen):\n"
-                        "  sudo apt install cdrskin\n\n"
-                        "Oder Rechte für wodim setzen:\n"
-                        "  sudo setcap cap_ipc_lock+ep $(which wodim)\n\n"
-                        f"Ausgabe:\n{full}"
+                        _("Burn error (code {code}) – memory lock problem.\n\n"
+                          "Fix: install cdrskin (recommended):\n"
+                          "  sudo apt install cdrskin\n\n"
+                          "Or set permissions for wodim:\n"
+                          "  sudo setcap cap_ipc_lock+ep $(which wodim)\n\n"
+                          "Output:\n{output}").format(code=proc.returncode, output=full)
                     )
                     self._set_status(hint)
                 else:
-                    self._set_status(f"Brenner-Fehler (Code {proc.returncode}):\n{full}")
+                    self._set_status(_("Burn error (code {code}):\n{output}").format(code=proc.returncode, output=full))
 
         except Exception as e:
-            self._set_status(f"Fehler: {e}")
+            self._set_status(_("Error: {error}").format(error=e))
         finally:
             for f in wav_files:
                 try:

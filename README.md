@@ -22,6 +22,7 @@ A GTK3 desktop app for Linux to browse your Jellyfin music library, build playli
 - Auto-detects optical drives, shown as a dropdown in settings
 - Library cached locally for instant startup, refreshed in the background
 - Checks for missing system dependencies on startup with clear instructions
+- UI language switchable between English and German (Settings → Language)
 
 ## Requirements
 
@@ -93,7 +94,8 @@ update-desktop-database ~/.local/share/applications/
 3. Enter an API key — Jellyfin Dashboard → Administration → API Keys → New Key
 4. Select your CD drive from the dropdown (auto-detected)
 5. Set burn speed (default: 4×)
-6. Save — the app connects and loads your library
+6. Choose your preferred language (English or Deutsch)
+7. Save — the app connects and loads your library
 
 Config is stored in `~/.config/jellyburn.json`. Passwords are never saved — only the API token obtained after login.
 Library cache is stored in `~/.cache/jellyburn/`.
@@ -106,12 +108,12 @@ Library cache is stored in `~/.cache/jellyburn/`.
 | Search | Type in the search bar — filters title, artist and album live |
 | Play | Double-click a track, or select it and press Play |
 | Scrub | Click or drag the progress bar to seek within a track |
-| Mini player | Click the collapse button (⧉) in the header; click ⤢ to restore |
-| Add to playlist | Select tracks (Ctrl+click for multiple), then „+ Auswahl hinzufügen" |
+| Mini player | Click the collapse button in the header; click restore to return |
+| Add to playlist | Select tracks (Ctrl+click for multiple), then „+ Add selection" |
 | Reorder playlist | Drag and drop rows |
 | Remove from playlist | Select rows and press Delete, or right-click → remove |
 | Save/load playlist | Use the save/open icons in the playlist header |
-| Burn | Click „● CD BRENNEN" — tracks are downloaded, converted and burned |
+| Burn | Click „● BURN CD" — tracks are downloaded, converted and burned |
 
 The CD capacity bar turns yellow above 85 % and red when the playlist exceeds 74 minutes.
 

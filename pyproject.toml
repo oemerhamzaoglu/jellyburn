@@ -39,4 +39,4 @@ where = ["."]
 include = ["jellyburn*"]
 
 [tool.setuptools.package-data]
-jellyburn = ["icons/*.svg"]
+jellyburn = ["icons/*.svg", "locales/*/LC_MESSAGES/*.mo", "locales/*/LC_MESSAGES/*.po"]
