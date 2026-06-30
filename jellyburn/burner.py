@@ -1,4 +1,5 @@
 import os
+import resource
 import subprocess
 import tempfile
 import threading
@@ -19,7 +20,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
 
 from .api import track_artist
-from .config import check_dependencies
+from .config import check_dependencies, get_burn_tool
 
 
 class BurnDialog(Gtk.Dialog):
@@ -154,9 +155,25 @@ class BurnDialog(Gtk.Dialog):
 
             device = resolve_sg_device(self.config.get("cd_device", "/dev/sr0"))
             speed = self.config.get("burn_speed", 4)
-            cmd = ["wodim", f"dev={device}", f"speed={speed}", "-v", "-dao", "-audio", "-pad"] + wav_files
+            burn_tool = get_burn_tool()
+            if not burn_tool:
+                self._set_status("Kein Brennprogramm gefunden.\nBitte installieren: sudo apt install cdrskin")
+                return
+            cmd = [burn_tool, f"dev={device}", f"speed={speed}", "-v", "-dao", "-audio", "-pad"] + wav_files
 
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            def _raise_memlock():
+                try:
+                    soft, hard = resource.getrlimit(resource.RLIMIT_MEMLOCK)
+                    if hard == resource.RLIM_INFINITY:
+                        resource.setrlimit(resource.RLIMIT_MEMLOCK,
+                                           (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
+                    elif hard > soft:
+                        resource.setrlimit(resource.RLIMIT_MEMLOCK, (hard, hard))
+                except Exception:
+                    pass
+
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                    text=True, preexec_fn=_raise_memlock)
             output_lines = []
             for line in proc.stdout:
                 line = line.strip()
@@ -169,8 +186,19 @@ class BurnDialog(Gtk.Dialog):
                 self._set_status("CD erfolgreich gebrannt!")
                 self._set_progress(1.0, "Fertig!")
             else:
-                last = "\n".join(output_lines[-20:])
-                self._set_status(f"Brenner-Fehler (Code {proc.returncode}):\n{last}")
+                full = "\n".join(output_lines[-20:])
+                if "RLIMIT_MEMLOCK" in full or "mmap" in full:
+                    hint = (
+                        f"Brenner-Fehler (Code {proc.returncode}) – Speicher-Lock-Problem.\n\n"
+                        "Lösung: cdrskin installieren (empfohlen):\n"
+                        "  sudo apt install cdrskin\n\n"
+                        "Oder Rechte für wodim setzen:\n"
+                        "  sudo setcap cap_ipc_lock+ep $(which wodim)\n\n"
+                        f"Ausgabe:\n{full}"
+                    )
+                    self._set_status(hint)
+                else:
+                    self._set_status(f"Brenner-Fehler (Code {proc.returncode}):\n{full}")
 
         except Exception as e:
             self._set_status(f"Fehler: {e}")

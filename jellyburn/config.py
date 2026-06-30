@@ -7,7 +7,6 @@ import subprocess
 REQUIRED_TOOLS = {
     "mpv":    "Wiedergabe (mpv)",
     "ffmpeg": "Audio-Konvertierung (ffmpeg)",
-    "wodim":  "CD-Brennen (wodim)",
 }
 
 CONFIG_FILE = os.path.expanduser("~/.config/jellyburn.json")
@@ -23,9 +22,20 @@ DEFAULT_CONFIG = {
 CD_MAX_SECONDS = 74 * 60
 
 
+def get_burn_tool():
+    """Gibt 'cdrskin' oder 'wodim' zurück, je nachdem was installiert ist."""
+    for cmd in ("cdrskin", "wodim"):
+        if subprocess.run(["which", cmd], capture_output=True).returncode == 0:
+            return cmd
+    return None
+
+
 def check_dependencies():
-    return [label for cmd, label in REQUIRED_TOOLS.items()
-            if subprocess.run(["which", cmd], capture_output=True).returncode != 0]
+    missing = [label for cmd, label in REQUIRED_TOOLS.items()
+               if subprocess.run(["which", cmd], capture_output=True).returncode != 0]
+    if get_burn_tool() is None:
+        missing.append("CD-Brennen (cdrskin oder wodim)")
+    return missing
 
 
 def load_config():
