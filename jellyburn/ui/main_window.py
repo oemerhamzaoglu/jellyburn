@@ -38,6 +38,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self.player,
             on_play=self._play_selected,
             on_stop=self._stop_playback,
+            on_restore=self._restore_from_mini,
         )
         self.connect("delete-event", self._on_close)
 
@@ -705,10 +706,12 @@ class MainWindow(Gtk.ApplicationWindow):
         )
 
     def _toggle_mini(self, _):
-        if self.mini.get_visible():
-            self.mini.hide()
-        else:
-            self.mini.show()
+        self.hide()
+        self.mini.show()
+
+    def _restore_from_mini(self):
+        self.show()
+        self.present()
 
     def _on_scrub_start(self, widget, event):
         self._scrubbing = True

@@ -4,27 +4,29 @@ from gi.repository import Gtk, Gdk, Pango
 
 
 class MiniPlayer(Gtk.Window):
-    def __init__(self, player, on_play, on_stop):
-        super().__init__(title="Jellyburn Mini")
+    def __init__(self, player, on_play, on_stop, on_restore):
+        super().__init__(title="Jellyburn")
         self.player = player
         self._on_play = on_play
         self._on_stop = on_stop
+        self._on_restore = on_restore
         self._scrubbing = False
 
         self.set_default_size(320, 88)
         self.set_resizable(False)
         self.set_keep_above(True)
         self.set_type_hint(Gdk.WindowTypeHint.UTILITY)
-        self.connect("delete-event", lambda *_: self.hide() or True)
+        # X-Button → zurück zum Hauptfenster statt schließen
+        self.connect("delete-event", self._restore)
 
         self._build_ui()
+        # Startet versteckt – wird erst per Toggle eingeblendet
 
     def _build_ui(self):
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         outer.get_style_context().add_class("mini-player")
         self.add(outer)
 
-        # Drag handle – zieht das Fenster
         handle = Gtk.EventBox()
         handle.connect("button-press-event", self._on_drag)
 
@@ -56,6 +58,12 @@ class MiniPlayer(Gtk.Window):
         ctrl.pack_start(btn_stop, False, False, 0)
         ctrl.pack_start(self.lbl_time, False, False, 4)
 
+        # Expand-Button – zurück zum Hauptfenster
+        btn_expand = Gtk.Button.new_from_icon_name("view-fullscreen-symbolic", Gtk.IconSize.BUTTON)
+        btn_expand.set_tooltip_text("Vollansicht")
+        btn_expand.connect("clicked", self._restore)
+        ctrl.pack_end(btn_expand, False, False, 0)
+
         info.pack_start(self.lbl_title, False, False, 0)
         info.pack_start(self.lbl_sub, False, False, 0)
         info.pack_start(ctrl, False, False, 0)
@@ -75,6 +83,12 @@ class MiniPlayer(Gtk.Window):
         outer.pack_start(self.scale, False, False, 0)
 
         self.show_all()
+        self.hide()
+
+    def _restore(self, *_):
+        self.hide()
+        self._on_restore()
+        return True  # delete-event: True verhindert das Schließen
 
     def _on_drag(self, widget, event):
         if event.button == 1:
