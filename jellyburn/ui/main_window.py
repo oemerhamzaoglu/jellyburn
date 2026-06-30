@@ -288,13 +288,26 @@ class MainWindow(Gtk.ApplicationWindow):
         self.track_view.set_activate_on_single_click(False)
         self.track_view.set_rules_hint(True)
 
-        for title, col, expand in [("Titel", 1, True), ("Künstler", 2, True),
-                                    ("Album", 3, True), ("Länge", 4, False)]:
+        # cols: key → (store_col, title, expand, always_visible)
+        self._col_defs = [
+            ("titel",    1, "Titel",    True,  True),
+            ("kuenstler",2, "Künstler", True,  False),
+            ("album",    3, "Album",    True,  False),
+            ("laenge",   4, "Länge",    False, False),
+        ]
+        self._track_cols = {}
+        visible_cols = self.config.get("visible_columns",
+                                       ["titel", "kuenstler", "album", "laenge"])
+        for key, store_col, title, expand, always in self._col_defs:
             rend = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
-            c = Gtk.TreeViewColumn(title, rend, text=col)
+            c = Gtk.TreeViewColumn(title, rend, text=store_col)
             c.set_resizable(True)
             c.set_expand(expand)
+            c.set_visible(always or key in visible_cols)
+            self._track_cols[key] = c
             self.track_view.append_column(c)
+
+        self.track_view.connect("button-press-event", self._on_track_header_click)
 
         self.track_view.get_selection().set_mode(Gtk.SelectionMode.MULTIPLE)
         self.track_view.connect("row-activated", self._on_track_activated)
@@ -772,6 +785,35 @@ class MainWindow(Gtk.ApplicationWindow):
             menu.append(item_remove)
             menu.show_all()
             menu.popup_at_pointer(event)
+
+    def _on_track_header_click(self, widget, event):
+        from gi.repository import Gdk
+        if event.button != 3:
+            return False
+        # Nur reagieren wenn Klick auf Spaltenheader (y nahe 0)
+        if event.y > 24:
+            return False
+        menu = Gtk.Menu()
+        for key, _, title, _, always in self._col_defs:
+            if always:
+                continue
+            item = Gtk.CheckMenuItem(label=title)
+            item.set_active(self._track_cols[key].get_visible())
+            def _toggle(mi, k=key):
+                self._track_cols[k].set_visible(mi.get_active())
+                self._save_column_config()
+            item.connect("toggled", _toggle)
+            menu.append(item)
+        menu.show_all()
+        menu.popup_at_pointer(event)
+        return True
+
+    def _save_column_config(self):
+        self.config["visible_columns"] = [
+            key for key, *_ in self._col_defs
+            if self._track_cols[key].get_visible()
+        ]
+        save_config({k: v for k, v in self.config.items() if k != "password"})
 
     def _sync_playlist_from_store(self, *_):
         if self._ignore_store_signals:
