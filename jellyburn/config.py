@@ -67,5 +67,22 @@ def save_library_cache(server_url, tracks):
         json.dump(tracks, f)
 
 
+def detect_cd_devices():
+    """Gibt Liste von (dev_path, label) für alle erkannten optischen Laufwerke zurück."""
+    import glob
+    devices = []
+    for sr in sorted(glob.glob("/sys/block/sr*")):
+        name = os.path.basename(sr)
+        dev = f"/dev/{name}"
+        try:
+            vendor = open(f"{sr}/device/vendor").read().strip()
+            model = open(f"{sr}/device/model").read().strip()
+            label = f"{vendor} {model}  ({dev})"
+        except OSError:
+            label = dev
+        devices.append((dev, label))
+    return devices
+
+
 def seconds_to_mmss(s):
     return f"{int(s) // 60}:{int(s) % 60:02d}"
