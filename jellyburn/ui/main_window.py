@@ -30,8 +30,8 @@ from ..playlists import (
 )
 from .burn_dialog import BurnDialog
 from .dialogs import prompt_text, show_error
-from .equalizer import EqualizerWindow
 from .mini_player import MiniPlayer
+from .now_playing import NowPlayingBox
 from .settings_dialog import SettingsDialog
 from .style import ThemeManager
 
@@ -50,7 +50,6 @@ class MainWindow(Gtk.ApplicationWindow):
             self.config.get("eq_bands", [0.0] * 10),
             self.config.get("eq_enabled", False),
         )
-        self.eq_window = None
         self.playlist_tracks = []
         self.playlist_name = None
         self._track_sort_col = None
@@ -67,10 +66,11 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.mini = MiniPlayer(
             self.player,
-            on_play=self._on_play_pause_clicked,
-            on_stop=self._stop_playback,
+            on_play=self.now_playing.toggle_play_pause,
+            on_stop=self.now_playing.stop,
             on_restore=self._restore_from_mini,
         )
+        self.now_playing.set_mini(self.mini)
         self.connect("delete-event", self._on_close)
 
         if self.config.get("server_url"):
@@ -350,58 +350,13 @@ class MainWindow(Gtk.ApplicationWindow):
         right.pack_start(Gtk.Separator(), False, False, 4)
 
         # ── Now Playing ──
-        np_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10, margin=8)
-        np_box.get_style_context().add_class("now-playing-box")
-
-        self.art_image = Gtk.Image()
-        self.art_image.set_size_request(56, 56)
-        self.art_image.get_style_context().add_class("art-placeholder")
-        np_box.pack_start(self.art_image, False, False, 0)
-
-        np_info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
-        np_info.set_valign(Gtk.Align.CENTER)
-
-        self.np_title = Gtk.Label(label="", xalign=0, ellipsize=Pango.EllipsizeMode.END)
-        self.np_title.get_style_context().add_class("now-playing-title")
-
-        self.np_sub = Gtk.Label(label="", xalign=0, ellipsize=Pango.EllipsizeMode.END)
-        self.np_sub.get_style_context().add_class("now-playing-sub")
-
-        np_ctrl = Gtk.Box(spacing=4)
-        self.btn_play = Gtk.Button.new_from_icon_name(
-            "media-playback-start-symbolic", Gtk.IconSize.BUTTON
+        self.now_playing = NowPlayingBox(
+            self.player,
+            self.config,
+            get_client=lambda: self.client,
+            get_selection=self._get_play_selection,
         )
-        self.btn_play.connect("clicked", self._on_play_pause_clicked)
-        self.btn_stop = Gtk.Button.new_from_icon_name(
-            "media-playback-stop-symbolic", Gtk.IconSize.BUTTON
-        )
-        self.btn_stop.connect("clicked", self._stop_playback)
-        self.btn_eq = Gtk.Button(label="EQ")
-        self.btn_eq.set_tooltip_text(_("Equalizer"))
-        self.btn_eq.connect("clicked", self._toggle_eq)
-        self.np_time = Gtk.Label(label="", xalign=0)
-        self.np_time.get_style_context().add_class("now-playing-sub")
-        np_ctrl.pack_start(self.btn_play, False, False, 0)
-        np_ctrl.pack_start(self.btn_stop, False, False, 0)
-        np_ctrl.pack_start(self.btn_eq, False, False, 0)
-        np_ctrl.pack_start(self.np_time, False, False, 4)
-
-        self.np_progress = Gtk.Scale.new(Gtk.Orientation.HORIZONTAL, None)
-        self.np_progress.set_draw_value(False)
-        self.np_progress.set_range(0, 1)
-        self.np_progress.set_value(0)
-        self.np_progress.get_style_context().add_class("playback")
-        self.np_progress.connect("button-press-event", self._on_scrub_start)
-        self.np_progress.connect("button-release-event", self._on_scrub_end)
-        self._scrubbing = False
-
-        np_info.pack_start(self.np_title, False, False, 0)
-        np_info.pack_start(self.np_sub, False, False, 0)
-        np_info.pack_start(np_ctrl, False, False, 0)
-        np_info.pack_start(self.np_progress, False, False, 0)
-        np_box.pack_start(np_info, True, True, 0)
-
-        right.pack_start(np_box, False, False, 0)
+        right.pack_start(self.now_playing, False, False, 0)
 
         self.burn_btn = Gtk.Button(label=_("● BURN CD"))
         self.burn_btn.set_margin_start(8)
@@ -767,24 +722,9 @@ class MainWindow(Gtk.ApplicationWindow):
         track = next(
             (t for t in getattr(self, "all_tracks", []) if t["Id"] == track_id), None
         )
-        self._play_track_async(track_id, f"{row[3]} - {row[2]}", track)
+        self.now_playing.play_track(track_id, f"{row[3]} - {row[2]}", track)
 
-    def _on_play_pause_clicked(self, _btn):
-        if self.player.is_playing:
-            self.player.toggle_pause()
-            self._set_play_icon(paused=self.player.is_paused)
-        else:
-            self._play_selected(None)
-
-    def _set_play_icon(self, paused):
-        icon = (
-            "media-playback-start-symbolic"
-            if paused
-            else "media-playback-pause-symbolic"
-        )
-        self.btn_play.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
-
-    def _play_selected(self, _btn):
+    def _get_play_selection(self):
         sel = self.track_view.get_selection()
         model, paths = sel.get_selected_rows()
         if not paths:
@@ -796,74 +736,15 @@ class MainWindow(Gtk.ApplicationWindow):
                     (t for t in self.playlist_tracks if t["Id"] == row[0]), None
                 )
                 if track:
-                    self._play_track_async(row[0], f"{row[3]} - {row[2]}", track)
-            return
+                    return row[0], f"{row[3]} - {row[2]}", track
+            return None
         row = model[paths[0]]
         if not self.client:
-            return
+            return None
         track = next(
             (t for t in getattr(self, "all_tracks", []) if t["Id"] == row[0]), None
         )
-        self._play_track_async(row[0], f"{row[3]} - {row[2]}", track)
-
-    def _play_track_async(self, track_id, label, track):
-        # get_stream_url() calls get_user_id(), which does a blocking
-        # network request the first time (or after auth fails) - never
-        # call it directly from a signal handler, or a slow/unreachable
-        # server freezes the whole UI for the request's timeout duration.
-        def worker():
-            try:
-                url = self.client.get_stream_url(track_id)
-            except requests.exceptions.RequestException as e:
-                GLib.idle_add(
-                    self.np_title.set_text, _("Playback error: {error}").format(error=e)
-                )
-                return
-            GLib.idle_add(self._play_url, url, label, track)
-
-        threading.Thread(target=worker, daemon=True).start()
-
-    def _play_url(self, url, label, track=None):
-        parts = label.split(" - ", 1)
-        artist = parts[0] if len(parts) == 2 else ""
-        title = parts[1] if len(parts) == 2 else label
-        self.np_title.set_text(title)
-        self.np_sub.set_text(artist)
-        self.np_time.set_text("")
-        self.np_progress.set_value(0)
-        self.mini.set_track(title, artist)
-        self._set_play_icon(paused=False)
-
-        if track and self.client:
-            threading.Thread(
-                target=self._load_art, args=(track["Id"],), daemon=True
-            ).start()
-        else:
-            GLib.idle_add(self.art_image.clear)
-
-        def on_progress(fraction, time_str, elapsed, total):
-            GLib.idle_add(self.np_time.set_text, time_str)
-            if not self._scrubbing:
-                GLib.idle_add(self.np_progress.set_range, 0, max(total, 1))
-                GLib.idle_add(self.np_progress.set_value, elapsed)
-            GLib.idle_add(self.mini.set_progress, elapsed, total, time_str)
-
-        def on_error(msg):
-            GLib.idle_add(self.np_title.set_text, msg)
-
-        def on_finished():
-            GLib.idle_add(self._set_play_icon, True)
-
-        self.player.play(
-            url,
-            track,
-            ticks_to_seconds=(
-                self.client.ticks_to_seconds if self.client else (lambda x: 0)
-            ),
-            on_progress=on_progress,
-            on_error=on_error,
-            on_finished=on_finished,
-        )
+        return row[0], f"{row[3]} - {row[2]}", track
 
     def _toggle_mini(self, _btn):
         self.hide()
@@ -872,60 +753,6 @@ class MainWindow(Gtk.ApplicationWindow):
     def _restore_from_mini(self):
         self.show()
         self.present()
-
-    def _toggle_eq(self, _btn):
-        if self.eq_window is None:
-            self.eq_window = EqualizerWindow(
-                self,
-                self.config.get("eq_bands", [0.0] * 10),
-                self.config.get("eq_enabled", False),
-                self._on_eq_change,
-            )
-        self.eq_window.present_window()
-
-    def _on_eq_change(self, bands, enabled):
-        self.config["eq_bands"] = bands
-        self.config["eq_enabled"] = enabled
-        save_config({k: v for k, v in self.config.items() if k != "password"})
-        self.player.set_eq(bands, enabled)
-
-    def _on_scrub_start(self, widget, event):
-        self._scrubbing = True
-
-    def _on_scrub_end(self, widget, event):
-        self._scrubbing = False
-        if self.player.is_playing:
-            self.player.seek(widget.get_value())
-
-    def _load_art(self, item_id):
-        try:
-            url = (
-                f"{self.client.server_url}/Items/{item_id}/Images/Primary"
-                f"?fillHeight=56&fillWidth=56&quality=80&api_key={self.client.api_key}"
-            )
-            resp = self.client.session.get(url, timeout=8)
-            if resp.status_code == 200:
-                loader = GdkPixbuf.PixbufLoader()
-                loader.write(resp.content)
-                loader.close()
-                pixbuf = loader.get_pixbuf()
-                GLib.idle_add(self.art_image.set_from_pixbuf, pixbuf)
-                GLib.idle_add(self.mini.set_art, pixbuf)
-                return
-        except Exception:
-            pass
-        GLib.idle_add(self.art_image.clear)
-        GLib.idle_add(self.mini.set_art, None)
-
-    def _stop_playback(self, _btn):
-        self.player.stop()
-        self.np_title.set_text("")
-        self.np_sub.set_text("")
-        self.np_time.set_text("")
-        self.np_progress.set_value(0)
-        self.art_image.clear()
-        self.mini.clear()
-        self._set_play_icon(paused=True)
 
     # ── Playlist ──
     def _on_track_right_click(self, widget, event):
