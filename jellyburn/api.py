@@ -25,10 +25,14 @@ class JellyfinClient:
         self.session.request = lambda method, url, **kw: requests.Session.request(
             self.session, method, url, timeout=kw.pop("timeout", self.TIMEOUT), **kw
         )
-        if api_key:
-            self.session.headers["X-MediaBrowser-Token"] = api_key
-        elif username and password:
+        # A password means the user is actively (re-)authenticating right
+        # now - prefer that over a possibly stale/invalid stored api_key,
+        # which would otherwise silently keep failing even after the user
+        # corrects their credentials in Settings.
+        if username and password:
             self._login(username, password)
+        elif api_key:
+            self.session.headers["X-MediaBrowser-Token"] = api_key
 
     def _login(self, username, password):
         url = f"{self.server_url}/Users/AuthenticateByName"

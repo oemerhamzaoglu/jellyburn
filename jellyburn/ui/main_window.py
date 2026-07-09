@@ -1007,9 +1007,7 @@ class MainWindow(Gtk.ApplicationWindow):
         track = next(
             (t for t in getattr(self, "all_tracks", []) if t["Id"] == track_id), None
         )
-        self._play_url(
-            self.client.get_stream_url(track_id), f"{row[3]} - {row[2]}", track=track
-        )
+        self._play_track_async(track_id, f"{row[3]} - {row[2]}", track)
 
     def _play_selected(self, _btn):
         sel = self.track_view.get_selection()
@@ -1023,11 +1021,7 @@ class MainWindow(Gtk.ApplicationWindow):
                     (t for t in self.playlist_tracks if t["Id"] == row[0]), None
                 )
                 if track:
-                    self._play_url(
-                        self.client.get_stream_url(row[0]),
-                        f"{row[3]} - {row[2]}",
-                        track=track,
-                    )
+                    self._play_track_async(row[0], f"{row[3]} - {row[2]}", track)
             return
         row = model[paths[0]]
         if not self.client:
@@ -1035,9 +1029,24 @@ class MainWindow(Gtk.ApplicationWindow):
         track = next(
             (t for t in getattr(self, "all_tracks", []) if t["Id"] == row[0]), None
         )
-        self._play_url(
-            self.client.get_stream_url(row[0]), f"{row[3]} - {row[2]}", track=track
-        )
+        self._play_track_async(row[0], f"{row[3]} - {row[2]}", track)
+
+    def _play_track_async(self, track_id, label, track):
+        # get_stream_url() calls get_user_id(), which does a blocking
+        # network request the first time (or after auth fails) - never
+        # call it directly from a signal handler, or a slow/unreachable
+        # server freezes the whole UI for the request's timeout duration.
+        def worker():
+            try:
+                url = self.client.get_stream_url(track_id)
+            except requests.exceptions.RequestException as e:
+                GLib.idle_add(
+                    self.np_title.set_text, _("Playback error: {error}").format(error=e)
+                )
+                return
+            GLib.idle_add(self._play_url, url, label, track)
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def _play_url(self, url, label, track=None):
         parts = label.split(" - ", 1)
