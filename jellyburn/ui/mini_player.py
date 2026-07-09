@@ -12,6 +12,7 @@ class MiniPlayer(Gtk.Window):
         self._on_stop = on_stop
         self._on_restore = on_restore
         self._scrubbing = False
+        self._destroyed = False
 
         self.set_default_size(320, 88)
         self.set_resizable(False)
@@ -58,7 +59,7 @@ class MiniPlayer(Gtk.Window):
         btn_stop = Gtk.Button.new_from_icon_name(
             "media-playback-stop-symbolic", Gtk.IconSize.BUTTON
         )
-        btn_stop.connect("clicked", lambda _: self._on_stop())
+        btn_stop.connect("clicked", lambda _: self._on_stop(None))
         self.lbl_time = Gtk.Label(label="", xalign=0)
         self.lbl_time.get_style_context().add_class("now-playing-sub")
         ctrl.pack_start(btn_play, False, False, 0)
@@ -110,25 +111,40 @@ class MiniPlayer(Gtk.Window):
         if self.player.is_playing:
             self.player.seek(widget.get_value())
 
+    def destroy(self):
+        self._destroyed = True
+        super().destroy()
+
     # ── Public update API ──────────────────────────────────────────────────────
+    # Guarded against firing after destroy(): playback progress callbacks
+    # are scheduled via GLib.idle_add from a background thread and may
+    # still be in flight when the app is closed mid-playback.
 
     def set_track(self, title, artist):
+        if self._destroyed:
+            return
         self.lbl_title.set_text(title)
         self.lbl_sub.set_text(artist)
 
     def set_art(self, pixbuf):
+        if self._destroyed:
+            return
         if pixbuf:
             self.art.set_from_pixbuf(pixbuf)
         else:
             self.art.clear()
 
     def set_progress(self, elapsed, total, time_str):
+        if self._destroyed:
+            return
         self.lbl_time.set_text(time_str)
         if not self._scrubbing:
             self.scale.set_range(0, max(total, 1))
             self.scale.set_value(elapsed)
 
     def clear(self):
+        if self._destroyed:
+            return
         self.lbl_title.set_text("")
         self.lbl_sub.set_text("")
         self.lbl_time.set_text("")
