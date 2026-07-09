@@ -63,7 +63,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.mini = MiniPlayer(
             self.player,
-            on_play=self._play_selected,
+            on_play=self._on_play_pause_clicked,
             on_stop=self._stop_playback,
             on_restore=self._restore_from_mini,
         )
@@ -618,7 +618,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.btn_play = Gtk.Button.new_from_icon_name(
             "media-playback-start-symbolic", Gtk.IconSize.BUTTON
         )
-        self.btn_play.connect("clicked", self._play_selected)
+        self.btn_play.connect("clicked", self._on_play_pause_clicked)
         self.btn_stop = Gtk.Button.new_from_icon_name(
             "media-playback-stop-symbolic", Gtk.IconSize.BUTTON
         )
@@ -1017,6 +1017,21 @@ class MainWindow(Gtk.ApplicationWindow):
         )
         self._play_track_async(track_id, f"{row[3]} - {row[2]}", track)
 
+    def _on_play_pause_clicked(self, _btn):
+        if self.player.is_playing:
+            self.player.toggle_pause()
+            self._set_play_icon(paused=self.player.is_paused)
+        else:
+            self._play_selected(None)
+
+    def _set_play_icon(self, paused):
+        icon = (
+            "media-playback-start-symbolic"
+            if paused
+            else "media-playback-pause-symbolic"
+        )
+        self.btn_play.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
+
     def _play_selected(self, _btn):
         sel = self.track_view.get_selection()
         model, paths = sel.get_selected_rows()
@@ -1065,6 +1080,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.np_time.set_text("")
         self.np_progress.set_value(0)
         self.mini.set_track(title, artist)
+        self._set_play_icon(paused=False)
 
         if track and self.client:
             threading.Thread(
@@ -1084,6 +1100,9 @@ class MainWindow(Gtk.ApplicationWindow):
         def on_error(msg):
             GLib.idle_add(self.np_title.set_text, msg)
 
+        def on_finished():
+            GLib.idle_add(self._set_play_icon, True)
+
         self.player.play(
             url,
             track,
@@ -1092,6 +1111,7 @@ class MainWindow(Gtk.ApplicationWindow):
             ),
             on_progress=on_progress,
             on_error=on_error,
+            on_finished=on_finished,
         )
 
     def _toggle_mini(self, _btn):
@@ -1154,6 +1174,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.np_progress.set_value(0)
         self.art_image.clear()
         self.mini.clear()
+        self._set_play_icon(paused=True)
 
     # ── Playlist ──
     def _on_track_right_click(self, widget, event):

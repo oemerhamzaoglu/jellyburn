@@ -54,7 +54,7 @@ class MiniPlayer(Gtk.Window):
         btn_play = Gtk.Button.new_from_icon_name(
             "media-playback-start-symbolic", Gtk.IconSize.BUTTON
         )
-        btn_play.connect("clicked", lambda _: self._on_play())
+        btn_play.connect("clicked", lambda _: self._on_play(None))
         btn_stop = Gtk.Button.new_from_icon_name(
             "media-playback-stop-symbolic", Gtk.IconSize.BUTTON
         )
