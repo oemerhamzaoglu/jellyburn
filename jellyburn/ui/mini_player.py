@@ -1,4 +1,5 @@
 import gi
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, Pango
 
@@ -41,16 +42,22 @@ class MiniPlayer(Gtk.Window):
         info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         info.set_valign(Gtk.Align.CENTER)
 
-        self.lbl_title = Gtk.Label(label="", xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.lbl_title = Gtk.Label(
+            label="", xalign=0, ellipsize=Pango.EllipsizeMode.END
+        )
         self.lbl_title.get_style_context().add_class("now-playing-title")
 
         self.lbl_sub = Gtk.Label(label="", xalign=0, ellipsize=Pango.EllipsizeMode.END)
         self.lbl_sub.get_style_context().add_class("now-playing-sub")
 
         ctrl = Gtk.Box(spacing=4)
-        btn_play = Gtk.Button.new_from_icon_name("media-playback-start-symbolic", Gtk.IconSize.BUTTON)
+        btn_play = Gtk.Button.new_from_icon_name(
+            "media-playback-start-symbolic", Gtk.IconSize.BUTTON
+        )
         btn_play.connect("clicked", lambda _: self._on_play())
-        btn_stop = Gtk.Button.new_from_icon_name("media-playback-stop-symbolic", Gtk.IconSize.BUTTON)
+        btn_stop = Gtk.Button.new_from_icon_name(
+            "media-playback-stop-symbolic", Gtk.IconSize.BUTTON
+        )
         btn_stop.connect("clicked", lambda _: self._on_stop())
         self.lbl_time = Gtk.Label(label="", xalign=0)
         self.lbl_time.get_style_context().add_class("now-playing-sub")
@@ -59,7 +66,9 @@ class MiniPlayer(Gtk.Window):
         ctrl.pack_start(self.lbl_time, False, False, 4)
 
         # Expand-Button – zurück zum Hauptfenster
-        btn_expand = Gtk.Button.new_from_icon_name("view-fullscreen-symbolic", Gtk.IconSize.BUTTON)
+        btn_expand = Gtk.Button.new_from_icon_name(
+            "view-fullscreen-symbolic", Gtk.IconSize.BUTTON
+        )
         btn_expand.set_tooltip_text("Vollansicht")
         btn_expand.connect("clicked", self._restore)
         ctrl.pack_end(btn_expand, False, False, 0)
@@ -78,7 +87,9 @@ class MiniPlayer(Gtk.Window):
         self.scale.set_margin_end(8)
         self.scale.set_margin_bottom(6)
         self.scale.get_style_context().add_class("playback")
-        self.scale.connect("button-press-event", lambda *_: setattr(self, "_scrubbing", True))
+        self.scale.connect(
+            "button-press-event", lambda *_: setattr(self, "_scrubbing", True)
+        )
         self.scale.connect("button-release-event", self._on_scrub_end)
         outer.pack_start(self.scale, False, False, 0)
 

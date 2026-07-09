@@ -1,4 +1,5 @@
 import gi
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
@@ -6,11 +7,11 @@ from ..i18n import _
 from ..player import EQ_FREQS
 
 PRESETS = {
-    "flat":    ("Flat",         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
-    "bass":    ("Bass Boost",   [8, 6, 4, 2, 0, 0, 0, 0, 0, 0]),
-    "treble":  ("Treble Boost", [0, 0, 0, 0, 0, 0, 2, 4, 6, 8]),
-    "vocal":   ("Vocal",        [-2, -2, 0, 2, 4, 4, 2, 0, -1, -2]),
-    "rock":    ("Rock",         [5, 3, 0, -2, -3, 0, 2, 3, 4, 5]),
+    "flat": ("Flat", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+    "bass": ("Bass Boost", [8, 6, 4, 2, 0, 0, 0, 0, 0, 0]),
+    "treble": ("Treble Boost", [0, 0, 0, 0, 0, 0, 2, 4, 6, 8]),
+    "vocal": ("Vocal", [-2, -2, 0, 2, 4, 4, 2, 0, -1, -2]),
+    "rock": ("Rock", [5, 3, 0, -2, -3, 0, 2, 3, 4, 5]),
 }
 
 

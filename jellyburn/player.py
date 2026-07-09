@@ -14,7 +14,9 @@ EQ_FREQS = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
 def build_eq_filter(bands_db):
     if not bands_db or all(abs(g) < 0.01 for g in bands_db):
         return ""
-    entries = ";".join(f"entry({freq},{gain})" for freq, gain in zip(EQ_FREQS, bands_db))
+    entries = ";".join(
+        f"entry({freq},{gain})" for freq, gain in zip(EQ_FREQS, bands_db)
+    )
     return f"lavfi=[firequalizer=gain_entry='{entries}':gain='cubic_interpolate(f)']"
 
 
@@ -33,7 +35,9 @@ class Player:
         self.stop()
         self._seek_target = None
         args = [
-            "mpv", "--no-video", "--really-quiet",
+            "mpv",
+            "--no-video",
+            "--really-quiet",
             f"--input-ipc-server={_IPC_PATH}",
         ]
         if self._eq_enabled:
@@ -89,6 +93,8 @@ class Player:
                 self._seek_target = None
             elapsed = time.monotonic() - start
             fraction = min(elapsed / total, 1.0) if total else 0
-            time_str = seconds_to_mmss(elapsed) + (f" / {seconds_to_mmss(total)}" if total else "")
+            time_str = seconds_to_mmss(elapsed) + (
+                f" / {seconds_to_mmss(total)}" if total else ""
+            )
             on_progress(fraction, time_str, elapsed, total)
             time.sleep(0.5)

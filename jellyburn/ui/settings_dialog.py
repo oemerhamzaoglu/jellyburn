@@ -1,4 +1,5 @@
 import gi
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -15,8 +16,9 @@ class SettingsDialog(Gtk.Dialog):
     def __init__(self, parent, config):
         super().__init__(title=_("Settings"), transient_for=parent, modal=True)
         self.set_default_size(440, 360)
-        self.add_buttons(_("Cancel"), Gtk.ResponseType.CANCEL,
-                         _("Save"), Gtk.ResponseType.OK)
+        self.add_buttons(
+            _("Cancel"), Gtk.ResponseType.CANCEL, _("Save"), Gtk.ResponseType.OK
+        )
 
         grid = Gtk.Grid(column_spacing=10, row_spacing=10, margin=16)
         self.get_content_area().pack_start(grid, True, True, 0)
@@ -55,7 +57,9 @@ class SettingsDialog(Gtk.Dialog):
         else:
             self.e_device.get_child().set_text(current)
         if not self._devices:
-            self.e_device.set_tooltip_text(_("No optical drive detected – enter path manually"))
+            self.e_device.set_tooltip_text(
+                _("No optical drive detected – enter path manually")
+            )
         row(_("CD Drive:"), self.e_device, 4)
 
         self.e_speed = Gtk.SpinButton.new_with_range(1, 52, 1)
@@ -69,19 +73,25 @@ class SettingsDialog(Gtk.Dialog):
         self.e_lang.set_active_id(current_lang)
         row(_("Language:"), self.e_lang, 6)
 
-        self.e_cdtext = Gtk.CheckButton(label=_("Write CD-Text (album/track info on disc)"))
+        self.e_cdtext = Gtk.CheckButton(
+            label=_("Write CD-Text (album/track info on disc)")
+        )
         self.e_cdtext.set_active(config.get("cd_text", True))
         grid.attach(self.e_cdtext, 1, 7, 1, 1)
 
         self.e_mp3_switch = Gtk.CheckButton(
-            label=_("Auto-switch to MP3 data CD if playlist is too long"))
+            label=_("Auto-switch to MP3 data CD if playlist is too long")
+        )
         self.e_mp3_switch.set_active(config.get("mp3_auto_switch", False))
         grid.attach(self.e_mp3_switch, 1, 8, 1, 1)
 
         self.show_all()
 
     def get_values(self):
-        device = self.e_device.get_active_id() or self.e_device.get_child().get_text().strip()
+        device = (
+            self.e_device.get_active_id()
+            or self.e_device.get_child().get_text().strip()
+        )
         return {
             "server_url": self.e_url.get_text().strip(),
             "username": self.e_user.get_text().strip(),

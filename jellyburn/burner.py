@@ -31,12 +31,14 @@ def resolve_sg_device(sr_device):
     try:
         name = os.path.basename(sr_device)  # z.B. "sr0"
         sg_dir = f"/sys/block/{name}/device/scsi_generic"
-        sg_name = os.listdir(sg_dir)[0]     # z.B. "sg1"
+        sg_name = os.listdir(sg_dir)[0]  # z.B. "sg1"
         return f"/dev/{sg_name}"
     except Exception:
         return sr_device  # Fallback: original behalten
 
+
 import gi
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
 
@@ -66,11 +68,24 @@ class BurnDialog(Gtk.Dialog):
         box.set_margin_top(16)
         box.set_margin_bottom(16)
 
-        mode_text = (_("Burning as: MP3 data CD ({kbps} kbps)").format(kbps=MP3_BITRATE_KBPS)
-                     if mode == "mp3" else _("Burning as: Audio CD"))
-        box.pack_start(Gtk.Label(label=f"<b>{mode_text}</b>", use_markup=True, xalign=0), False, False, 0)
+        mode_text = (
+            _("Burning as: MP3 data CD ({kbps} kbps)").format(kbps=MP3_BITRATE_KBPS)
+            if mode == "mp3"
+            else _("Burning as: Audio CD")
+        )
+        box.pack_start(
+            Gtk.Label(label=f"<b>{mode_text}</b>", use_markup=True, xalign=0),
+            False,
+            False,
+            0,
+        )
 
-        box.pack_start(Gtk.Label(label=f"<b>{_('Tracks on CD:')}</b>", use_markup=True, xalign=0), False, False, 0)
+        box.pack_start(
+            Gtk.Label(label=f"<b>{_('Tracks on CD:')}</b>", use_markup=True, xalign=0),
+            False,
+            False,
+            0,
+        )
 
         sw = Gtk.ScrolledWindow()
         sw.set_min_content_height(150)
@@ -114,7 +129,11 @@ class BurnDialog(Gtk.Dialog):
             self._set_status(_("Missing programs: ") + ", ".join(missing))
             return
         if self.mode == "mp3" and not get_iso_tool():
-            self._set_status(_("No ISO creation tool found.\nPlease install: sudo apt install xorriso"))
+            self._set_status(
+                _(
+                    "No ISO creation tool found.\nPlease install: sudo apt install xorriso"
+                )
+            )
             return
         self.burn_btn.set_sensitive(False)
         self.cancel_btn.set_sensitive(False)
@@ -140,22 +159,30 @@ class BurnDialog(Gtk.Dialog):
             self.progress.set_fraction(fraction)
             if text:
                 self.progress.set_text(text)
+
         GLib.idle_add(_update)
 
     def _raise_memlock(self):
         try:
             soft, hard = resource.getrlimit(resource.RLIMIT_MEMLOCK)
             if hard == resource.RLIM_INFINITY:
-                resource.setrlimit(resource.RLIMIT_MEMLOCK,
-                                   (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
+                resource.setrlimit(
+                    resource.RLIMIT_MEMLOCK,
+                    (resource.RLIM_INFINITY, resource.RLIM_INFINITY),
+                )
             elif hard > soft:
                 resource.setrlimit(resource.RLIMIT_MEMLOCK, (hard, hard))
         except Exception:
             pass
 
     def _run_burn_process(self, cmd):
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                text=True, preexec_fn=self._raise_memlock)
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            preexec_fn=self._raise_memlock,
+        )
         output_lines = []
         for line in proc.stdout:
             line = line.strip()
@@ -172,17 +199,21 @@ class BurnDialog(Gtk.Dialog):
         else:
             full = "\n".join(output_lines[-20:])
             if "RLIMIT_MEMLOCK" in full or "mmap" in full:
-                hint = (
-                    _("Burn error (code {code}) – memory lock problem.\n\n"
-                      "Fix: install cdrskin (recommended):\n"
-                      "  sudo apt install cdrskin\n\n"
-                      "Or set permissions for wodim:\n"
-                      "  sudo setcap cap_ipc_lock+ep $(which wodim)\n\n"
-                      "Output:\n{output}").format(code=returncode, output=full)
-                )
+                hint = _(
+                    "Burn error (code {code}) – memory lock problem.\n\n"
+                    "Fix: install cdrskin (recommended):\n"
+                    "  sudo apt install cdrskin\n\n"
+                    "Or set permissions for wodim:\n"
+                    "  sudo setcap cap_ipc_lock+ep $(which wodim)\n\n"
+                    "Output:\n{output}"
+                ).format(code=returncode, output=full)
                 self._set_status(hint)
             else:
-                self._set_status(_("Burn error (code {code}):\n{output}").format(code=returncode, output=full))
+                self._set_status(
+                    _("Burn error (code {code}):\n{output}").format(
+                        code=returncode, output=full
+                    )
+                )
 
     def _burn_thread(self):
         tmpdir = tempfile.mkdtemp(prefix="jellyfin_burn_")
@@ -205,8 +236,14 @@ class BurnDialog(Gtk.Dialog):
                 return
             name = track.get("Name", f"track_{i+1}")
             artist = track_artist(track)
-            self._set_status(_("Downloading: {artist} - {name} ({i}/{total})").format(artist=artist, name=name, i=i+1, total=total))
-            self._set_progress(i / total / 2, _("Download {i}/{total}").format(i=i+1, total=total))
+            self._set_status(
+                _("Downloading: {artist} - {name} ({i}/{total})").format(
+                    artist=artist, name=name, i=i + 1, total=total
+                )
+            )
+            self._set_progress(
+                i / total / 2, _("Download {i}/{total}").format(i=i + 1, total=total)
+            )
 
             url = self.client.get_download_url(track["Id"])
             resp = self.client.session.get(url, stream=True)
@@ -220,18 +257,35 @@ class BurnDialog(Gtk.Dialog):
             wav_path = os.path.join(tmpdir, f"track_{i+1:02d}.wav")
             self._set_status(_("Converting: {name}").format(name=name))
             result = subprocess.run(
-                ["ffmpeg", "-y", "-i", src_path,
-                 "-ar", "44100", "-ac", "2", "-f", "wav", wav_path],
-                capture_output=True, text=True,
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    src_path,
+                    "-ar",
+                    "44100",
+                    "-ac",
+                    "2",
+                    "-f",
+                    "wav",
+                    wav_path,
+                ],
+                capture_output=True,
+                text=True,
             )
             if result.returncode != 0:
                 self._set_status(
-                    _("Conversion failed: {name}\n{error}").format(name=name, error=result.stderr.strip()[-400:])
+                    _("Conversion failed: {name}\n{error}").format(
+                        name=name, error=result.stderr.strip()[-400:]
+                    )
                 )
                 return
             wav_files.append(wav_path)
             os.unlink(src_path)
-            self._set_progress((i + 1) / total / 2, _("Converted {i}/{total}").format(i=i+1, total=total))
+            self._set_progress(
+                (i + 1) / total / 2,
+                _("Converted {i}/{total}").format(i=i + 1, total=total),
+            )
 
         if self.cancelled:
             return
@@ -243,7 +297,9 @@ class BurnDialog(Gtk.Dialog):
         speed = self.config.get("burn_speed", 4)
         burn_tool = get_burn_tool()
         if not burn_tool:
-            self._set_status(_("No burn program found.\nPlease install: sudo apt install cdrskin"))
+            self._set_status(
+                _("No burn program found.\nPlease install: sudo apt install cdrskin")
+            )
             return
 
         if self.config.get("cd_text", True):
@@ -252,10 +308,25 @@ class BurnDialog(Gtk.Dialog):
             cue_path = os.path.join(tmpdir, "burn.cue")
             with open(cue_path, "w") as f:
                 f.write(cue_text)
-            cmd = [burn_tool, f"dev={device}", f"speed={speed}", "-v", "-dao", "-pad",
-                   f"-cuefile={cue_path}"]
+            cmd = [
+                burn_tool,
+                f"dev={device}",
+                f"speed={speed}",
+                "-v",
+                "-dao",
+                "-pad",
+                f"-cuefile={cue_path}",
+            ]
         else:
-            cmd = [burn_tool, f"dev={device}", f"speed={speed}", "-v", "-dao", "-audio", "-pad"] + wav_files
+            cmd = [
+                burn_tool,
+                f"dev={device}",
+                f"speed={speed}",
+                "-v",
+                "-dao",
+                "-audio",
+                "-pad",
+            ] + wav_files
 
         returncode, output_lines = self._run_burn_process(cmd)
         self._handle_burn_result(returncode, output_lines)
@@ -271,8 +342,14 @@ class BurnDialog(Gtk.Dialog):
                 return
             name = track.get("Name", f"track_{i+1}")
             artist = track_artist(track)
-            self._set_status(_("Downloading: {artist} - {name} ({i}/{total})").format(artist=artist, name=name, i=i+1, total=total))
-            self._set_progress(i / total / 2, _("Download {i}/{total}").format(i=i+1, total=total))
+            self._set_status(
+                _("Downloading: {artist} - {name} ({i}/{total})").format(
+                    artist=artist, name=name, i=i + 1, total=total
+                )
+            )
+            self._set_progress(
+                i / total / 2, _("Download {i}/{total}").format(i=i + 1, total=total)
+            )
 
             url = self.client.get_download_url(track["Id"])
             resp = self.client.session.get(url, stream=True)
@@ -287,9 +364,20 @@ class BurnDialog(Gtk.Dialog):
             dst_path = os.path.join(cd_root, dst_name)
 
             probe = subprocess.run(
-                ["ffprobe", "-v", "error", "-select_streams", "a:0",
-                 "-show_entries", "stream=codec_name", "-of", "csv=p=0", src_path],
-                capture_output=True, text=True,
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-select_streams",
+                    "a:0",
+                    "-show_entries",
+                    "stream=codec_name",
+                    "-of",
+                    "csv=p=0",
+                    src_path,
+                ],
+                capture_output=True,
+                text=True,
             )
             codec = probe.stdout.strip().lower()
 
@@ -298,23 +386,40 @@ class BurnDialog(Gtk.Dialog):
             else:
                 self._set_status(_("Converting: {name}").format(name=name))
                 result = subprocess.run(
-                    ["ffmpeg", "-y", "-i", src_path,
-                     "-codec:a", "libmp3lame", "-b:a", f"{MP3_BITRATE_KBPS}k", dst_path],
-                    capture_output=True, text=True,
+                    [
+                        "ffmpeg",
+                        "-y",
+                        "-i",
+                        src_path,
+                        "-codec:a",
+                        "libmp3lame",
+                        "-b:a",
+                        f"{MP3_BITRATE_KBPS}k",
+                        dst_path,
+                    ],
+                    capture_output=True,
+                    text=True,
                 )
                 if result.returncode != 0:
                     self._set_status(
-                        _("Conversion failed: {name}\n{error}").format(name=name, error=result.stderr.strip()[-400:])
+                        _("Conversion failed: {name}\n{error}").format(
+                            name=name, error=result.stderr.strip()[-400:]
+                        )
                     )
                     return
                 os.unlink(src_path)
 
             total_bytes += os.path.getsize(dst_path)
             if total_bytes > CD_DATA_MAX_BYTES:
-                self._set_status(_("Playlist exceeds data CD capacity (700 MB). Aborting."))
+                self._set_status(
+                    _("Playlist exceeds data CD capacity (700 MB). Aborting.")
+                )
                 return
 
-            self._set_progress((i + 1) / total / 2, _("Converted {i}/{total}").format(i=i+1, total=total))
+            self._set_progress(
+                (i + 1) / total / 2,
+                _("Converted {i}/{total}").format(i=i + 1, total=total),
+            )
 
         if self.cancelled:
             return
@@ -324,19 +429,37 @@ class BurnDialog(Gtk.Dialog):
 
         iso_tool = get_iso_tool()
         if not iso_tool:
-            self._set_status(_("No ISO creation tool found.\nPlease install: sudo apt install xorriso"))
+            self._set_status(
+                _(
+                    "No ISO creation tool found.\nPlease install: sudo apt install xorriso"
+                )
+            )
             return
 
         iso_path = os.path.join(tmpdir, "image.iso")
         if iso_tool == "xorriso":
-            iso_cmd = ["xorriso", "-as", "mkisofs", "-J", "-R", "-V", "JELLYBURN",
-                       "-o", iso_path, cd_root]
+            iso_cmd = [
+                "xorriso",
+                "-as",
+                "mkisofs",
+                "-J",
+                "-R",
+                "-V",
+                "JELLYBURN",
+                "-o",
+                iso_path,
+                cd_root,
+            ]
         else:
             iso_cmd = [iso_tool, "-J", "-R", "-V", "JELLYBURN", "-o", iso_path, cd_root]
 
         result = subprocess.run(iso_cmd, capture_output=True, text=True)
         if result.returncode != 0:
-            self._set_status(_("ISO creation failed:\n{error}").format(error=result.stderr.strip()[-400:]))
+            self._set_status(
+                _("ISO creation failed:\n{error}").format(
+                    error=result.stderr.strip()[-400:]
+                )
+            )
             return
 
         if self.cancelled:
@@ -349,7 +472,9 @@ class BurnDialog(Gtk.Dialog):
         speed = self.config.get("burn_speed", 4)
         burn_tool = get_burn_tool()
         if not burn_tool:
-            self._set_status(_("No burn program found.\nPlease install: sudo apt install cdrskin"))
+            self._set_status(
+                _("No burn program found.\nPlease install: sudo apt install cdrskin")
+            )
             return
 
         cmd = [burn_tool, f"dev={device}", f"speed={speed}", "-v", "-data", iso_path]

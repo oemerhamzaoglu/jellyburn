@@ -1,0 +1,176 @@
+app-id: io.github.oemerhamzaoglu.Jellyburn
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+command: jellyburn
+
+finish-args:
+  - --socket=x11
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --share=network
+  # No fine-grained "optical drive" portal exists in Flatpak yet
+  # (see flatpak/flatpak#12) - this is the same approach used by
+  # other CD/DVD burner Flatpaks (Brasero, Sound Juicer).
+  - --device=all
+
+modules:
+  - name: python3-requests
+    buildsystem: simple
+    # Wheels, not sdists: sdist builds need PEP517 backends (flit_core,
+    # hatchling, ...) that aren't in the offline build sandbox. Wheels
+    # skip that step entirely - just unpack and install.
+    build-commands:
+      - pip3 install --no-index --find-links="file://${PWD}" --prefix=${FLATPAK_DEST}
+        --no-deps
+        idna-3.18-py3-none-any.whl certifi-2026.6.17-py3-none-any.whl
+        urllib3-2.7.0-py3-none-any.whl charset_normalizer-3.4.9-py3-none-any.whl
+        requests-2.34.2-py3-none-any.whl
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/1e/5e/d4e9f1a599fb8e573b7b87160658329fbf28d19eac2718f51fc3def3aa5a/idna-3.18-py3-none-any.whl
+        sha256: 7f952cbe720b688055e3f87de14f5c3e5fdaa8bc3928985c4077ca689de849a2
+      - type: file
+        url: https://files.pythonhosted.org/packages/ef/2f/c5464532e965badff2f4c4c1a3a83f5697f0d7c407ed0cda44aaa99bb451/certifi-2026.6.17-py3-none-any.whl
+        sha256: 2227dcbaafe0d2f59279d1762ddddc37783ed4354594f194ffc31d20f41fc3db
+      - type: file
+        url: https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl
+        sha256: 9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897
+      - type: file
+        url: https://files.pythonhosted.org/packages/98/2b/f97f1c193fb855c345d678f5077d6926034db0722df74c8f057020e05a25/charset_normalizer-3.4.9-py3-none-any.whl
+        sha256: 68e5f26a1ad57ded6d1cfb85331d1c1a195314756471d97758c48498bb4dcdf5
+      - type: file
+        url: https://files.pythonhosted.org/packages/a0/f4/c67b0b3f1b9245e8d266f0f112c500d50e5b4e83cb6f3b71b6528104182a/requests-2.34.2-py3-none-any.whl
+        sha256: 2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0
+
+  # mpv is only used for audio playback (jellyburn always passes --no-video),
+  # so this is a lean build: no libass/subtitle/video-acceleration modules.
+  # meson auto-detects most video-output backends and simply skips them if
+  # not found - only ffmpeg (demux/decode) is a hard requirement we must build.
+  - name: mpv
+    buildsystem: meson
+    config-opts:
+      - -Dcplayer=true
+      - -Dlibmpv=false
+      - -Dmanpage-build=disabled
+    cleanup:
+      - /include
+      - /lib/pkgconfig
+      - /share/man
+      - /share/bash-completion
+      - /share/zsh
+    sources:
+      - type: archive
+        url: https://github.com/mpv-player/mpv/archive/v0.40.0.tar.gz
+        sha256: 10a0f4654f62140a6dd4d380dcf0bbdbdcf6e697556863dc499c296182f081a3
+
+    modules:
+      # libass and libplacebo are hard `dependency()` requirements in
+      # mpv's meson.build (not optional, despite the feature toggles in
+      # meson.options) - even a CLI/audio-only build needs them present
+      # to configure successfully.
+      - name: libass
+        cleanup:
+          - /include
+          - /lib/*.la
+          - /lib/pkgconfig
+        config-opts:
+          - --disable-static
+        sources:
+          - type: archive
+            url: https://github.com/libass/libass/releases/download/0.17.5/libass-0.17.5.tar.xz
+            sha256: 2dca25c0e0c837ddf00b52011b3f82cac1e4ddd3ad018227806b0c2288864acc
+
+      - name: libplacebo
+        buildsystem: meson
+        cleanup:
+          - /include
+          - /lib/pkgconfig
+        sources:
+          - type: git
+            url: https://github.com/haasn/libplacebo.git
+            tag: v7.360.1
+            commit: cee9b076f2c63104ccfd497fa79c39a867293ec4
+
+      - name: lame
+        config-opts:
+          - --disable-static
+          - --disable-frontend
+        cleanup:
+          - /bin
+          - /include
+          - /lib/pkgconfig
+          - /share
+        sources:
+          - type: archive
+            url: https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
+            sha256: ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e
+
+      - name: ffmpeg
+        cleanup:
+          - /include
+          - /lib/pkgconfig
+          - /share/ffmpeg/examples
+        config-opts:
+          - --enable-shared
+          - --disable-static
+          - --disable-doc
+          - --enable-libmp3lame
+        sources:
+          - type: archive
+            url: https://ffmpeg.org/releases/ffmpeg-7.1.tar.xz
+            sha256: 40973d44970dbc83ef302b0609f2e74982be2d85916dd2ee7472d30678a7abe6
+
+  - name: cdrskin
+    config-opts:
+      - --disable-static
+    cleanup:
+      - /share/doc
+      - /share/man
+    sources:
+      # This tarball's entries are "./cdrskin-1.5.6/..." (leading "./"),
+      # which throws off flatpak-builder's automatic single-directory
+      # strip - it only peels off the "." level, leaving an extra
+      # cdrskin-1.5.6/ nesting level. strip-components: 2 fixes it.
+      - type: archive
+        url: http://scdbackup.sourceforge.net/cdrskin-1.5.6.tar.gz
+        sha256: e720c0e403c7f2951821f591272ef15cfba45555553b53589e8bd8d6f90817ea
+        strip-components: 2
+      # test/poll.c (a noinst dev-test program, not installed) fails to
+      # compile on modern GCC: `static void catch_int()` doesn't match
+      # the `void (*)(int)` signal handler type. `make cdrskin/cdrskin`
+      # alone still pulls in all noinst test/ programs as prerequisites,
+      # so patch the one broken file instead of fighting the Makefile.
+      - type: shell
+        commands:
+          - sed -i 's/static void catch_int ()/static void catch_int(int sig)/' test/poll.c
+
+  - name: xorriso
+    config-opts:
+      - --disable-static
+    cleanup:
+      - /share/doc
+      - /share/man
+    sources:
+      - type: archive
+        url: https://www.gnu.org/software/xorriso/xorriso-1.5.6.pl02.tar.gz
+        sha256: 786f9f5df9865cc5b0c1fecee3d2c0f5e04cab8c9a859bd1c9c7ccd4964fdae1
+
+  - name: jellyburn
+    buildsystem: simple
+    build-commands:
+      # NOTE: for the eventual Flathub submission this source should
+      # become `type: git, url: .../jellyburn, tag: v<version>` instead
+      # of a local `dir` source - kept as `dir` for now to test the
+      # current working tree before it's tagged/released.
+      - pip3 install --no-index --no-build-isolation --no-deps --prefix=${FLATPAK_DEST} .
+      - install -Dm644 flatpak/io.github.oemerhamzaoglu.Jellyburn.desktop
+        /app/share/applications/io.github.oemerhamzaoglu.Jellyburn.desktop
+      - install -Dm644 jellyburn/icons/jellyburn.svg
+        /app/share/icons/hicolor/scalable/apps/io.github.oemerhamzaoglu.Jellyburn.svg
+      - install -Dm644 flatpak/io.github.oemerhamzaoglu.Jellyburn.metainfo.xml
+        /app/share/metainfo/io.github.oemerhamzaoglu.Jellyburn.metainfo.xml
+    sources:
+      - type: dir
+        path: ..

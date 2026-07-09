@@ -7,6 +7,7 @@ import os
 import sys
 
 import gi
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -17,6 +18,8 @@ from .ui.main_window import MainWindow
 
 def _install_desktop_integration():
     """Installs .desktop file and icon to ~/.local on first run."""
+    if os.environ.get("FLATPAK_ID"):
+        return  # Flatpak installs the desktop entry/icon itself
     marker = os.path.expanduser("~/.local/share/applications/jellyburn.desktop")
     if os.path.exists(marker):
         return
@@ -30,6 +33,7 @@ def _install_desktop_integration():
     os.makedirs(icon_dst_dir, exist_ok=True)
     if os.path.exists(icon_src) and not os.path.exists(icon_dst):
         import shutil
+
         shutil.copy2(icon_src, icon_dst)
 
     # .desktop file
@@ -38,6 +42,7 @@ def _install_desktop_integration():
     os.makedirs(apps_dir, exist_ok=True)
     if os.path.exists(desktop_src):
         import shutil
+
         shutil.copy2(desktop_src, marker)
 
     # Refresh caches (best-effort)
@@ -47,7 +52,7 @@ def _install_desktop_integration():
 
 class JellyburnApp(Gtk.Application):
     def __init__(self):
-        super().__init__(application_id="de.linumed.jellyfinburner")
+        super().__init__(application_id="io.github.oemerhamzaoglu.Jellyburn")
 
     def do_activate(self):
         cfg = load_config()
@@ -58,15 +63,18 @@ class JellyburnApp(Gtk.Application):
         missing = check_dependencies()
         if missing:
             dlg = Gtk.MessageDialog(
-                transient_for=win, modal=True,
+                transient_for=win,
+                modal=True,
                 message_type=Gtk.MessageType.WARNING,
                 buttons=Gtk.ButtonsType.OK,
                 text=_("Missing system dependencies"),
             )
             dlg.format_secondary_text(
-                _("The following programs were not found:") + "\n\n" +
-                "\n".join(f"  • {label}" for label in missing) +
-                "\n\n" + _("Please install them to enable all features.")
+                _("The following programs were not found:")
+                + "\n\n"
+                + "\n".join(f"  • {label}" for label in missing)
+                + "\n\n"
+                + _("Please install them to enable all features.")
             )
             dlg.run()
             dlg.destroy()

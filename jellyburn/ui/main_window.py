@@ -3,6 +3,7 @@ import threading
 from datetime import datetime
 
 import gi
+
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib, GdkPixbuf, Pango
 import requests
@@ -10,15 +11,22 @@ import requests
 from ..api import JellyfinClient, track_artist
 from ..burner import BurnDialog, MP3_BITRATE_KBPS
 from ..config import (
-    CD_MAX_SECONDS, CD_DATA_MAX_BYTES, load_config, save_config,
-    check_dependencies, seconds_to_mmss,
-    load_library_cache, save_library_cache,
+    CD_MAX_SECONDS,
+    CD_DATA_MAX_BYTES,
+    load_config,
+    save_config,
+    seconds_to_mmss,
+    load_library_cache,
+    save_library_cache,
 )
 from ..i18n import _
 from ..player import Player
 from ..playlists import (
-    list_playlists_info, load_playlist as pl_load, save_playlist as pl_save,
-    delete_playlist as pl_delete, rename_playlist as pl_rename,
+    list_playlists_info,
+    load_playlist as pl_load,
+    save_playlist as pl_save,
+    delete_playlist as pl_delete,
+    rename_playlist as pl_rename,
 )
 from .equalizer import EqualizerWindow
 from .mini_player import MiniPlayer
@@ -27,11 +35,16 @@ from .settings_dialog import SettingsDialog
 
 class MainWindow(Gtk.ApplicationWindow):
     def __init__(self, **kwargs):
-        super().__init__(title="Jellyburn", default_width=900, default_height=650, **kwargs)
+        super().__init__(
+            title="Jellyburn", default_width=900, default_height=650, **kwargs
+        )
         self.config = load_config()
         self.client = None
         self.player = Player()
-        self.player.set_eq(self.config.get("eq_bands", [0.0] * 10), self.config.get("eq_enabled", False))
+        self.player.set_eq(
+            self.config.get("eq_bands", [0.0] * 10),
+            self.config.get("eq_enabled", False),
+        )
         self.eq_window = None
         self._current_track = None
         self.playlist_tracks = []
@@ -267,17 +280,23 @@ class MainWindow(Gtk.ApplicationWindow):
         self.set_titlebar(header)
         self._load_icon()
 
-        btn_settings = Gtk.Button.new_from_icon_name("preferences-system-symbolic", Gtk.IconSize.BUTTON)
+        btn_settings = Gtk.Button.new_from_icon_name(
+            "preferences-system-symbolic", Gtk.IconSize.BUTTON
+        )
         btn_settings.set_tooltip_text(_("Settings"))
         btn_settings.connect("clicked", self._open_settings)
         header.pack_end(btn_settings)
 
-        btn_mini = Gtk.Button.new_from_icon_name("view-restore-symbolic", Gtk.IconSize.BUTTON)
+        btn_mini = Gtk.Button.new_from_icon_name(
+            "view-restore-symbolic", Gtk.IconSize.BUTTON
+        )
         btn_mini.set_tooltip_text(_("Mini Player"))
         btn_mini.connect("clicked", self._toggle_mini)
         header.pack_end(btn_mini)
 
-        btn_connect = Gtk.Button.new_from_icon_name("network-transmit-receive-symbolic", Gtk.IconSize.BUTTON)
+        btn_connect = Gtk.Button.new_from_icon_name(
+            "network-transmit-receive-symbolic", Gtk.IconSize.BUTTON
+        )
         btn_connect.set_tooltip_text(_("Reconnect"))
         btn_connect.connect("clicked", lambda _: self._connect())
         header.pack_end(btn_connect)
@@ -343,9 +362,13 @@ class MainWindow(Gtk.ApplicationWindow):
         self.track_view.set_activate_on_single_click(False)
         self.track_view.set_rules_hint(True)
 
-        for title, col, expand in [("#", 1, False), (_("Title"), 2, True),
-                                    (_("Artist"), 3, True), (_("Album"), 4, True),
-                                    (_("Length"), 5, False)]:
+        for title, col, expand in [
+            ("#", 1, False),
+            (_("Title"), 2, True),
+            (_("Artist"), 3, True),
+            (_("Album"), 4, True),
+            (_("Length"), 5, False),
+        ]:
             rend = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
             if title == "#":
                 rend.set_property("xalign", 1.0)
@@ -378,8 +401,12 @@ class MainWindow(Gtk.ApplicationWindow):
         right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         right.get_style_context().add_class("panel-right")
 
-        section_label = Gtk.Label(xalign=0, margin_start=8, margin_top=8, margin_bottom=2)
-        section_label.set_markup(f'<span font_desc="11" weight="bold" color="#9090b0">{_("Playlists").upper()}</span>')
+        section_label = Gtk.Label(
+            xalign=0, margin_start=8, margin_top=8, margin_bottom=2
+        )
+        section_label.set_markup(
+            f'<span font_desc="11" weight="bold" color="#9090b0">{_("Playlists").upper()}</span>'
+        )
         right.pack_start(section_label, False, False, 0)
 
         notebook = Gtk.Notebook()
@@ -393,8 +420,16 @@ class MainWindow(Gtk.ApplicationWindow):
 
         for icon, tip, cb in [
             ("list-add-symbolic", _("New playlist"), self._new_playlist),
-            ("document-open-symbolic", _("Load playlist")+" (JSON)", self._load_playlist),
-            ("document-save-symbolic", _("Save playlist")+" (JSON)", self._save_playlist),
+            (
+                "document-open-symbolic",
+                _("Load playlist") + " (JSON)",
+                self._load_playlist,
+            ),
+            (
+                "document-save-symbolic",
+                _("Save playlist") + " (JSON)",
+                self._save_playlist,
+            ),
         ]:
             b = Gtk.Button.new_from_icon_name(icon, Gtk.IconSize.SMALL_TOOLBAR)
             b.set_tooltip_text(tip)
@@ -407,8 +442,13 @@ class MainWindow(Gtk.ApplicationWindow):
         tab_playlist.pack_start(pl_header, False, False, 0)
         self._set_playlist_title()
 
-        cd_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL,
-                         margin_start=8, margin_end=8, margin_bottom=4, spacing=2)
+        cd_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            margin_start=8,
+            margin_end=8,
+            margin_bottom=4,
+            spacing=2,
+        )
         self.cd_counter = Gtk.Label(label="0:00 / 74:00", xalign=0)
         self.cd_counter.get_style_context().add_class("cd-counter")
         self.cd_bar = Gtk.ProgressBar()
@@ -461,7 +501,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self.pl_sort_combo.append("az", _("A–Z"))
         self.pl_sort_combo.append("newest", _("Newest"))
         self.pl_sort_combo.set_active_id("az")
-        self.pl_sort_combo.connect("changed", lambda _c: self._refresh_playlist_collection())
+        self.pl_sort_combo.connect(
+            "changed", lambda _c: self._refresh_playlist_collection()
+        )
         coll_toolbar.pack_start(self.pl_sort_combo, True, True, 0)
 
         for icon, tip, cb in [
@@ -480,13 +522,18 @@ class MainWindow(Gtk.ApplicationWindow):
         self.pl_collection_store = Gtk.ListStore(str, str, str)
         self.pl_collection_view = Gtk.TreeView(model=self.pl_collection_store)
         self.pl_collection_view.set_rules_hint(True)
-        for title, col, expand in [(_("Name"), 0, True), (_("Tracks"), 1, False),
-                                    (_("Modified"), 2, False)]:
+        for title, col, expand in [
+            (_("Name"), 0, True),
+            (_("Tracks"), 1, False),
+            (_("Modified"), 2, False),
+        ]:
             r = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
             c = Gtk.TreeViewColumn(title, r, text=col)
             c.set_expand(expand)
             self.pl_collection_view.append_column(c)
-        self.pl_collection_view.connect("row-activated", self._on_collection_row_activated)
+        self.pl_collection_view.connect(
+            "row-activated", self._on_collection_row_activated
+        )
         coll_sw.add(self.pl_collection_view)
         tab_collection.pack_start(coll_sw, True, True, 0)
 
@@ -517,9 +564,13 @@ class MainWindow(Gtk.ApplicationWindow):
         self.np_sub.get_style_context().add_class("now-playing-sub")
 
         np_ctrl = Gtk.Box(spacing=4)
-        self.btn_play = Gtk.Button.new_from_icon_name("media-playback-start-symbolic", Gtk.IconSize.BUTTON)
+        self.btn_play = Gtk.Button.new_from_icon_name(
+            "media-playback-start-symbolic", Gtk.IconSize.BUTTON
+        )
         self.btn_play.connect("clicked", self._play_selected)
-        self.btn_stop = Gtk.Button.new_from_icon_name("media-playback-stop-symbolic", Gtk.IconSize.BUTTON)
+        self.btn_stop = Gtk.Button.new_from_icon_name(
+            "media-playback-stop-symbolic", Gtk.IconSize.BUTTON
+        )
         self.btn_stop.connect("clicked", self._stop_playback)
         self.btn_eq = Gtk.Button(label="EQ")
         self.btn_eq.set_tooltip_text(_("Equalizer"))
@@ -563,6 +614,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _load_icon(self):
         import os
+
         icon_path = os.path.normpath(
             os.path.join(os.path.dirname(__file__), "..", "icons", "jellyburn.svg")
         )
@@ -588,7 +640,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self.load_bar.set_fraction(0)
         self.load_bar.show()
         self.lib_status.set_text(_("Connecting…"))
-        threading.Thread(target=self._connect_thread, args=(self._connect_generation,), daemon=True).start()
+        threading.Thread(
+            target=self._connect_thread, args=(self._connect_generation,), daemon=True
+        ).start()
 
     def _connect_thread(self, gen):
         server_url = self.config["server_url"]
@@ -613,18 +667,24 @@ class MainWindow(Gtk.ApplicationWindow):
                 def on_page(page, loaded, total):
                     all_tracks.extend(page)
                     fraction = loaded / total if total else 0
-                    GLib.idle_add(self._on_load_page, list(page), loaded, total, fraction)
+                    GLib.idle_add(
+                        self._on_load_page, list(page), loaded, total, fraction
+                    )
 
                 self.client.search_music(on_page=on_page)
                 GLib.idle_add(self._populate_tracks, all_tracks)
 
         except requests.exceptions.ConnectionError:
             GLib.idle_add(self.load_bar.hide)
-            GLib.idle_add(self.lib_status.set_text,
-                          _("Connection failed – is the server reachable?"))
+            GLib.idle_add(
+                self.lib_status.set_text,
+                _("Connection failed – is the server reachable?"),
+            )
         except requests.exceptions.Timeout:
             GLib.idle_add(self.load_bar.hide)
-            GLib.idle_add(self.lib_status.set_text, _("Timeout – server not responding."))
+            GLib.idle_add(
+                self.lib_status.set_text, _("Timeout – server not responding.")
+            )
         except requests.exceptions.HTTPError as e:
             code = e.response.status_code if e.response is not None else "?"
             msg = _("Invalid credentials.") if code == 401 else f"HTTP {code}"
@@ -643,13 +703,22 @@ class MainWindow(Gtk.ApplicationWindow):
         self.all_tracks = tracks
         for t in tracks:
             artist = track_artist(t)
-            self.track_store.append([
-                t["Id"], str(t.get("IndexNumber") or ""),
-                t.get("Name", ""), artist, t.get("Album", ""),
-                t.get("_dur", ""), artist, t.get("ParentId", ""),
-            ])
+            self.track_store.append(
+                [
+                    t["Id"],
+                    str(t.get("IndexNumber") or ""),
+                    t.get("Name", ""),
+                    artist,
+                    t.get("Album", ""),
+                    t.get("_dur", ""),
+                    artist,
+                    t.get("ParentId", ""),
+                ]
+            )
         self.load_bar.hide()
-        self.lib_status.set_text(_("{n} tracks (cache) – refreshing…").format(n=len(tracks)))
+        self.lib_status.set_text(
+            _("{n} tracks (cache) – refreshing…").format(n=len(tracks))
+        )
         # Nächster Idle-Zyklus: GTK hat den Store dann vollständig verarbeitet
         GLib.idle_add(self._fill_artist_store)
 
@@ -663,14 +732,25 @@ class MainWindow(Gtk.ApplicationWindow):
         if new_tracks:
             for t in new_tracks:
                 artist = track_artist(t)
-                dur = self.client.format_duration(t.get("RunTimeTicks", 0)) if self.client else ""
+                dur = (
+                    self.client.format_duration(t.get("RunTimeTicks", 0))
+                    if self.client
+                    else ""
+                )
                 t["_dur"] = dur
                 self.all_tracks.append(t)
-                self.track_store.append([
-                    t["Id"], str(t.get("IndexNumber") or ""),
-                    t.get("Name", ""), artist, t.get("Album", ""),
-                    dur, artist, t.get("ParentId", ""),
-                ])
+                self.track_store.append(
+                    [
+                        t["Id"],
+                        str(t.get("IndexNumber") or ""),
+                        t.get("Name", ""),
+                        artist,
+                        t.get("Album", ""),
+                        dur,
+                        artist,
+                        t.get("ParentId", ""),
+                    ]
+                )
 
         if removed_ids:
             self.all_tracks = [t for t in self.all_tracks if t["Id"] not in removed_ids]
@@ -695,18 +775,27 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _on_load_page(self, page, loaded, total, fraction):
         self.load_bar.set_fraction(fraction)
-        self.lib_status.set_text(_("Loading… {loaded} / {total}").format(loaded=loaded, total=total))
+        self.lib_status.set_text(
+            _("Loading… {loaded} / {total}").format(loaded=loaded, total=total)
+        )
         if not self.client:
             return
         for t in page:
             artist = track_artist(t)
             dur = self.client.format_duration(t.get("RunTimeTicks", 0))
             t["_dur"] = dur
-            self.track_store.append([
-                t["Id"], str(t.get("IndexNumber") or ""),
-                t.get("Name", ""), artist, t.get("Album", ""),
-                dur, artist, t.get("ParentId", ""),
-            ])
+            self.track_store.append(
+                [
+                    t["Id"],
+                    str(t.get("IndexNumber") or ""),
+                    t.get("Name", ""),
+                    artist,
+                    t.get("Album", ""),
+                    dur,
+                    artist,
+                    t.get("ParentId", ""),
+                ]
+            )
 
     def _populate_tracks(self, tracks):
         self.all_tracks = tracks
@@ -724,9 +813,11 @@ class MainWindow(Gtk.ApplicationWindow):
     def _track_visible(self, model, it, _data):
         if self._filter_query:
             q = self._filter_query
-            return (q in model[it][2].lower()
-                    or q in model[it][3].lower()
-                    or q in model[it][4].lower())
+            return (
+                q in model[it][2].lower()
+                or q in model[it][3].lower()
+                or q in model[it][4].lower()
+            )
         if self._filter_artist and model[it][6] != self._filter_artist:
             return False
         if self._filter_album and model[it][7] != self._filter_album:
@@ -739,6 +830,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 return int(v)
             except (TypeError, ValueError):
                 return 0
+
         a, b = to_int(model[it1][1]), to_int(model[it2][1])
         return (a > b) - (a < b)
 
@@ -749,13 +841,15 @@ class MainWindow(Gtk.ApplicationWindow):
                 return int(m) * 60 + int(s)
             except (ValueError, AttributeError):
                 return 0
+
         a, b = to_seconds(model[it1][5]), to_seconds(model[it2][5])
         return (a > b) - (a < b)
 
     def _on_track_column_clicked(self, column, col_idx):
         if self._track_sort_col == col_idx:
             self._track_sort_order = (
-                Gtk.SortType.DESCENDING if self._track_sort_order == Gtk.SortType.ASCENDING
+                Gtk.SortType.DESCENDING
+                if self._track_sort_order == Gtk.SortType.ASCENDING
                 else Gtk.SortType.ASCENDING
             )
         else:
@@ -810,9 +904,11 @@ class MainWindow(Gtk.ApplicationWindow):
         self._filter_artist = model[it][0]
         self._filter_album = ""
         self._track_filter.refilter()
-        artist_tracks = (self.all_tracks if not self._filter_artist
-                         else [t for t in self.all_tracks
-                               if track_artist(t) == self._filter_artist])
+        artist_tracks = (
+            self.all_tracks
+            if not self._filter_artist
+            else [t for t in self.all_tracks if track_artist(t) == self._filter_artist]
+        )
         self._fill_album_store(artist_tracks)
 
     def _on_album_selected(self, selection):
@@ -835,8 +931,12 @@ class MainWindow(Gtk.ApplicationWindow):
         track_id = row[0]
         if not self.client:
             return
-        track = next((t for t in getattr(self, "all_tracks", []) if t["Id"] == track_id), None)
-        self._play_url(self.client.get_stream_url(track_id), f"{row[3]} - {row[2]}", track=track)
+        track = next(
+            (t for t in getattr(self, "all_tracks", []) if t["Id"] == track_id), None
+        )
+        self._play_url(
+            self.client.get_stream_url(track_id), f"{row[3]} - {row[2]}", track=track
+        )
 
     def _play_selected(self, _btn):
         sel = self.track_view.get_selection()
@@ -846,15 +946,25 @@ class MainWindow(Gtk.ApplicationWindow):
             model2, paths2 = sel2.get_selected_rows()
             if paths2 and self.client:
                 row = model2[paths2[0]]
-                track = next((t for t in self.playlist_tracks if t["Id"] == row[0]), None)
+                track = next(
+                    (t for t in self.playlist_tracks if t["Id"] == row[0]), None
+                )
                 if track:
-                    self._play_url(self.client.get_stream_url(row[0]), f"{row[3]} - {row[2]}", track=track)
+                    self._play_url(
+                        self.client.get_stream_url(row[0]),
+                        f"{row[3]} - {row[2]}",
+                        track=track,
+                    )
             return
         row = model[paths[0]]
         if not self.client:
             return
-        track = next((t for t in getattr(self, "all_tracks", []) if t["Id"] == row[0]), None)
-        self._play_url(self.client.get_stream_url(row[0]), f"{row[3]} - {row[2]}", track=track)
+        track = next(
+            (t for t in getattr(self, "all_tracks", []) if t["Id"] == row[0]), None
+        )
+        self._play_url(
+            self.client.get_stream_url(row[0]), f"{row[3]} - {row[2]}", track=track
+        )
 
     def _play_url(self, url, label, track=None):
         parts = label.split(" - ", 1)
@@ -867,7 +977,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self.mini.set_track(title, artist)
 
         if track and self.client:
-            threading.Thread(target=self._load_art, args=(track["Id"],), daemon=True).start()
+            threading.Thread(
+                target=self._load_art, args=(track["Id"],), daemon=True
+            ).start()
         else:
             GLib.idle_add(self.art_image.clear)
 
@@ -883,8 +995,11 @@ class MainWindow(Gtk.ApplicationWindow):
             GLib.idle_add(self.np_title.set_text, msg)
 
         self.player.play(
-            url, track,
-            ticks_to_seconds=self.client.ticks_to_seconds if self.client else (lambda x: 0),
+            url,
+            track,
+            ticks_to_seconds=(
+                self.client.ticks_to_seconds if self.client else (lambda x: 0)
+            ),
             on_progress=on_progress,
             on_error=on_error,
         )
@@ -900,8 +1015,10 @@ class MainWindow(Gtk.ApplicationWindow):
     def _toggle_eq(self, _btn):
         if self.eq_window is None:
             self.eq_window = EqualizerWindow(
-                self, self.config.get("eq_bands", [0.0] * 10),
-                self.config.get("eq_enabled", False), self._on_eq_change,
+                self,
+                self.config.get("eq_bands", [0.0] * 10),
+                self.config.get("eq_enabled", False),
+                self._on_eq_change,
             )
         self.eq_window.present_window()
 
@@ -921,8 +1038,10 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _load_art(self, item_id):
         try:
-            url = (f"{self.client.server_url}/Items/{item_id}/Images/Primary"
-                   f"?fillHeight=56&fillWidth=56&quality=80&api_key={self.client.api_key}")
+            url = (
+                f"{self.client.server_url}/Items/{item_id}/Images/Primary"
+                f"?fillHeight=56&fillWidth=56&quality=80&api_key={self.client.api_key}"
+            )
             resp = self.client.session.get(url, timeout=8)
             if resp.status_code == 200:
                 loader = GdkPixbuf.PixbufLoader()
@@ -973,10 +1092,15 @@ class MainWindow(Gtk.ApplicationWindow):
             track_id = row[0]
             if any(t["Id"] == track_id for t in self.playlist_tracks):
                 continue
-            track = next((t for t in getattr(self, "all_tracks", []) if t["Id"] == track_id), None)
+            track = next(
+                (t for t in getattr(self, "all_tracks", []) if t["Id"] == track_id),
+                None,
+            )
             if track:
                 self.playlist_tracks.append(track)
-                self.pl_store.append([track_id, str(len(self.playlist_tracks)), row[2], row[3], row[5]])
+                self.pl_store.append(
+                    [track_id, str(len(self.playlist_tracks)), row[2], row[3], row[5]]
+                )
         self._update_cd_counter()
 
     def _on_album_right_click(self, widget, event):
@@ -1002,21 +1126,40 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _add_album_to_playlist(self, _item, album_id):
         tracks = sorted(
-            (t for t in getattr(self, "all_tracks", []) if t.get("ParentId") == album_id),
+            (
+                t
+                for t in getattr(self, "all_tracks", [])
+                if t.get("ParentId") == album_id
+            ),
             key=lambda t: t.get("IndexNumber") or 0,
         )
         for track in tracks:
             if any(t["Id"] == track["Id"] for t in self.playlist_tracks):
                 continue
             self.playlist_tracks.append(track)
-            dur = self.client.format_duration(track.get("RunTimeTicks", 0)) if self.client else ""
-            self.pl_store.append([track["Id"], str(len(self.playlist_tracks)),
-                                  track.get("Name", ""), track_artist(track), dur])
+            dur = (
+                self.client.format_duration(track.get("RunTimeTicks", 0))
+                if self.client
+                else ""
+            )
+            self.pl_store.append(
+                [
+                    track["Id"],
+                    str(len(self.playlist_tracks)),
+                    track.get("Name", ""),
+                    track_artist(track),
+                    dur,
+                ]
+            )
         self._update_cd_counter()
 
     def _burn_album(self, _item, album_id):
         tracks = sorted(
-            (t for t in getattr(self, "all_tracks", []) if t.get("ParentId") == album_id),
+            (
+                t
+                for t in getattr(self, "all_tracks", [])
+                if t.get("ParentId") == album_id
+            ),
             key=lambda t: t.get("IndexNumber") or 0,
         )
         if not tracks:
@@ -1027,9 +1170,20 @@ class MainWindow(Gtk.ApplicationWindow):
         self._clear_playlist(None)
         for track in tracks:
             self.playlist_tracks.append(track)
-            dur = self.client.format_duration(track.get("RunTimeTicks", 0)) if self.client else ""
-            self.pl_store.append([track["Id"], str(len(self.playlist_tracks)),
-                                  track.get("Name", ""), track_artist(track), dur])
+            dur = (
+                self.client.format_duration(track.get("RunTimeTicks", 0))
+                if self.client
+                else ""
+            )
+            self.pl_store.append(
+                [
+                    track["Id"],
+                    str(len(self.playlist_tracks)),
+                    track.get("Name", ""),
+                    track_artist(track),
+                    dur,
+                ]
+            )
         self.playlist_name = f"{artist_name} – {album_name}"
         self._set_playlist_title()
         self._update_cd_counter()
@@ -1049,12 +1203,15 @@ class MainWindow(Gtk.ApplicationWindow):
         if self._ignore_store_signals:
             return
         id_to_track = {t["Id"]: t for t in self.playlist_tracks}
-        self.playlist_tracks = [id_to_track[row[0]] for row in self.pl_store if row[0] in id_to_track]
+        self.playlist_tracks = [
+            id_to_track[row[0]] for row in self.pl_store if row[0] in id_to_track
+        ]
         self._renumber_playlist()
         self._update_cd_counter()
 
     def _on_pl_key(self, widget, event):
         from gi.repository import Gdk
+
         if event.keyval in (Gdk.KEY_Delete, Gdk.KEY_KP_Delete):
             self._remove_from_playlist(None)
             return True
@@ -1065,7 +1222,9 @@ class MainWindow(Gtk.ApplicationWindow):
         model, paths = sel.get_selected_rows()
         for path in reversed(paths):
             track_id = model[path][0]
-            self.playlist_tracks = [t for t in self.playlist_tracks if t["Id"] != track_id]
+            self.playlist_tracks = [
+                t for t in self.playlist_tracks if t["Id"] != track_id
+            ]
             model.remove(model.get_iter(path))
         self._ignore_store_signals = False
         self._renumber_playlist()
@@ -1120,8 +1279,14 @@ class MainWindow(Gtk.ApplicationWindow):
             infos.sort(key=lambda i: i["name"].lower())
         self.pl_collection_store.clear()
         for info in infos:
-            modified = datetime.fromtimestamp(info["mtime"]).strftime("%d.%m.%Y %H:%M") if info["mtime"] else ""
-            self.pl_collection_store.append([info["name"], str(info["count"]), modified])
+            modified = (
+                datetime.fromtimestamp(info["mtime"]).strftime("%d.%m.%Y %H:%M")
+                if info["mtime"]
+                else ""
+            )
+            self.pl_collection_store.append(
+                [info["name"], str(info["count"]), modified]
+            )
 
     def _on_notebook_switch_page(self, notebook, page, page_num):
         if page_num == 1:
@@ -1143,9 +1308,20 @@ class MainWindow(Gtk.ApplicationWindow):
             if not isinstance(track, dict) or "Id" not in track:
                 continue
             self.playlist_tracks.append(track)
-            dur = self.client.format_duration(track.get("RunTimeTicks", 0)) if self.client else ""
-            self.pl_store.append([track["Id"], str(len(self.playlist_tracks)),
-                                  track.get("Name", ""), track_artist(track), dur])
+            dur = (
+                self.client.format_duration(track.get("RunTimeTicks", 0))
+                if self.client
+                else ""
+            )
+            self.pl_store.append(
+                [
+                    track["Id"],
+                    str(len(self.playlist_tracks)),
+                    track.get("Name", ""),
+                    track_artist(track),
+                    dur,
+                ]
+            )
         self.playlist_name = name
         self._set_playlist_title()
         self._update_cd_counter()
@@ -1158,7 +1334,9 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _prompt_text(self, title, default=""):
         dlg = Gtk.Dialog(title=title, transient_for=self, modal=True)
-        dlg.add_buttons(_("Cancel"), Gtk.ResponseType.CANCEL, _("OK"), Gtk.ResponseType.OK)
+        dlg.add_buttons(
+            _("Cancel"), Gtk.ResponseType.CANCEL, _("OK"), Gtk.ResponseType.OK
+        )
         entry = Gtk.Entry(text=default)
         entry.set_activates_default(True)
         dlg.set_default_response(Gtk.ResponseType.OK)
@@ -1215,9 +1393,11 @@ class MainWindow(Gtk.ApplicationWindow):
         if not name:
             return
         dlg = Gtk.MessageDialog(
-            transient_for=self, modal=True, message_type=Gtk.MessageType.WARNING,
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.WARNING,
             buttons=Gtk.ButtonsType.OK_CANCEL,
-            text=_("Delete playlist \"{name}\"?").format(name=name),
+            text=_('Delete playlist "{name}"?').format(name=name),
         )
         resp = dlg.run()
         dlg.destroy()
@@ -1234,10 +1414,13 @@ class MainWindow(Gtk.ApplicationWindow):
         if not self.playlist_tracks:
             return
         dlg = Gtk.FileChooserDialog(
-            title=_("Save playlist"), transient_for=self,
+            title=_("Save playlist"),
+            transient_for=self,
             action=Gtk.FileChooserAction.SAVE,
         )
-        dlg.add_buttons(_("Cancel"), Gtk.ResponseType.CANCEL, _("Save"), Gtk.ResponseType.OK)
+        dlg.add_buttons(
+            _("Cancel"), Gtk.ResponseType.CANCEL, _("Save"), Gtk.ResponseType.OK
+        )
         dlg.set_current_name("playlist.json")
         dlg.set_do_overwrite_confirmation(True)
         ff = Gtk.FileFilter()
@@ -1257,10 +1440,13 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _load_playlist(self, _btn):
         dlg = Gtk.FileChooserDialog(
-            title=_("Load playlist"), transient_for=self,
+            title=_("Load playlist"),
+            transient_for=self,
             action=Gtk.FileChooserAction.OPEN,
         )
-        dlg.add_buttons(_("Cancel"), Gtk.ResponseType.CANCEL, _("Open"), Gtk.ResponseType.OK)
+        dlg.add_buttons(
+            _("Cancel"), Gtk.ResponseType.CANCEL, _("Open"), Gtk.ResponseType.OK
+        )
         ff = Gtk.FileFilter()
         ff.set_name(_("JSON files"))
         ff.add_pattern("*.json")
@@ -1281,9 +1467,20 @@ class MainWindow(Gtk.ApplicationWindow):
                     if any(t["Id"] == track["Id"] for t in self.playlist_tracks):
                         continue
                     self.playlist_tracks.append(track)
-                    dur = self.client.format_duration(track.get("RunTimeTicks", 0)) if self.client else ""
-                    self.pl_store.append([track["Id"], str(len(self.playlist_tracks)),
-                                          track.get("Name", ""), track_artist(track), dur])
+                    dur = (
+                        self.client.format_duration(track.get("RunTimeTicks", 0))
+                        if self.client
+                        else ""
+                    )
+                    self.pl_store.append(
+                        [
+                            track["Id"],
+                            str(len(self.playlist_tracks)),
+                            track.get("Name", ""),
+                            track_artist(track),
+                            dur,
+                        ]
+                    )
                 self._update_cd_counter()
             except (OSError, json.JSONDecodeError, ValueError) as e:
                 self._show_error(_("Load failed: {error}").format(error=e))
@@ -1291,7 +1488,8 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _show_error(self, msg):
         dlg = Gtk.MessageDialog(
-            transient_for=self, modal=True,
+            transient_for=self,
+            modal=True,
             message_type=Gtk.MessageType.ERROR,
             buttons=Gtk.ButtonsType.OK,
             text=msg,
@@ -1300,10 +1498,14 @@ class MainWindow(Gtk.ApplicationWindow):
         dlg.destroy()
 
     def _update_cd_counter(self):
-        total_s = sum(
-            self.client.ticks_to_seconds(t.get("RunTimeTicks", 0))
-            for t in self.playlist_tracks
-        ) if self.client else 0
+        total_s = (
+            sum(
+                self.client.ticks_to_seconds(t.get("RunTimeTicks", 0))
+                for t in self.playlist_tracks
+            )
+            if self.client
+            else 0
+        )
         fraction = min(total_s / CD_MAX_SECONDS, 1.0)
         self.cd_bar.set_fraction(fraction)
 
@@ -1316,7 +1518,9 @@ class MainWindow(Gtk.ApplicationWindow):
         if total_s > CD_MAX_SECONDS:
             ctx.add_class("cd-red")
             ctr_ctx.add_class("over-limit")
-            self.cd_counter.set_text(f"{seconds_to_mmss(total_s)} / 74:00  ⚠ " + _("TOO LONG"))
+            self.cd_counter.set_text(
+                f"{seconds_to_mmss(total_s)} / 74:00  ⚠ " + _("TOO LONG")
+            )
         elif fraction > 0.85:
             ctx.add_class("cd-yellow")
             self.cd_counter.set_text(f"{seconds_to_mmss(total_s)} / 74:00")
@@ -1337,12 +1541,17 @@ class MainWindow(Gtk.ApplicationWindow):
             save_config({k: v for k, v in self.config.items() if k != "password"})
             if lang_changed:
                 info = Gtk.MessageDialog(
-                    transient_for=self, modal=True,
+                    transient_for=self,
+                    modal=True,
                     message_type=Gtk.MessageType.INFO,
                     buttons=Gtk.ButtonsType.OK,
                     text=_("Language changed"),
                 )
-                info.format_secondary_text(_("Please restart Jellyburn for the language change to take effect."))
+                info.format_secondary_text(
+                    _(
+                        "Please restart Jellyburn for the language change to take effect."
+                    )
+                )
                 info.run()
                 info.destroy()
             else:
@@ -1352,14 +1561,18 @@ class MainWindow(Gtk.ApplicationWindow):
     def _start_burn(self, _btn):
         if not self.playlist_tracks:
             return
-        total_s = sum(self.client.ticks_to_seconds(t.get("RunTimeTicks", 0)) for t in self.playlist_tracks)
+        total_s = sum(
+            self.client.ticks_to_seconds(t.get("RunTimeTicks", 0))
+            for t in self.playlist_tracks
+        )
         mode = "audio"
         if total_s > CD_MAX_SECONDS:
             est_bytes = total_s * (MP3_BITRATE_KBPS * 1000 // 8)
             if est_bytes > CD_DATA_MAX_BYTES:
                 self._show_error(
-                    _("Playlist is too long even for an MP3 data CD (~{mb} MB estimated, limit ~700 MB).")
-                    .format(mb=est_bytes // 1_000_000)
+                    _(
+                        "Playlist is too long even for an MP3 data CD (~{mb} MB estimated, limit ~700 MB)."
+                    ).format(mb=est_bytes // 1_000_000)
                 )
                 return
 
@@ -1367,12 +1580,16 @@ class MainWindow(Gtk.ApplicationWindow):
                 mode = "mp3"
             else:
                 dlg = Gtk.MessageDialog(
-                    transient_for=self, modal=True, message_type=Gtk.MessageType.WARNING,
+                    transient_for=self,
+                    modal=True,
+                    message_type=Gtk.MessageType.WARNING,
                     buttons=Gtk.ButtonsType.NONE,
                     text=_("Playlist too long!"),
                 )
                 dlg.format_secondary_text(
-                    _("The playlist is {duration} long – a CD holds only 74:00.").format(duration=seconds_to_mmss(total_s))
+                    _(
+                        "The playlist is {duration} long – a CD holds only 74:00."
+                    ).format(duration=seconds_to_mmss(total_s))
                 )
                 dlg.add_button(_("Burn as MP3 data CD"), Gtk.ResponseType.OK)
                 dlg.add_button(_("Audio CD anyway"), Gtk.ResponseType.APPLY)
@@ -1387,6 +1604,8 @@ class MainWindow(Gtk.ApplicationWindow):
                 else:
                     return
 
-        dlg = BurnDialog(self, self.playlist_tracks, self.client, self.config, mode=mode)
+        dlg = BurnDialog(
+            self, self.playlist_tracks, self.client, self.config, mode=mode
+        )
         dlg.run()
         dlg.destroy()

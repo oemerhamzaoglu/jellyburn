@@ -40,3 +40,12 @@ include = ["jellyburn*"]
 
 [tool.setuptools.package-data]
 jellyburn = ["icons/*.svg", "locales/*/LC_MESSAGES/*.mo", "locales/*/LC_MESSAGES/*.po"]
+
+[tool.black]
+target-version = ["py310"]
+
+[tool.ruff.lint]
+# E402: PyGObject requires gi.require_version(...) to run before the
+# matching `from gi.repository import ...` line, which is unavoidably
+# not "top of file" - this is the correct, required pattern, not a bug.
+ignore = ["E402"]

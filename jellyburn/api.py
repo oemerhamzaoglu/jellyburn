@@ -2,9 +2,7 @@ import requests
 
 
 def track_artist(track):
-    return (track.get("AlbumArtist")
-            or (track.get("Artists") or [""])[0]
-            or "")
+    return track.get("AlbumArtist") or (track.get("Artists") or [""])[0] or ""
 
 
 class JellyfinClient:
@@ -15,16 +13,18 @@ class JellyfinClient:
         self.api_key = api_key
         self.user_id = None
         self.session = requests.Session()
-        self.session.headers.update({
-            "X-Emby-Authorization": (
-                'MediaBrowser Client="Jellyburn", Device="Linux",'
-                ' DeviceId="jellyburn-01", Version="1.0"'
-            ),
-            "Content-Type": "application/json",
-        })
-        self.session.request = lambda method, url, **kw: \
-            requests.Session.request(self.session, method, url,
-                                     timeout=kw.pop("timeout", self.TIMEOUT), **kw)
+        self.session.headers.update(
+            {
+                "X-Emby-Authorization": (
+                    'MediaBrowser Client="Jellyburn", Device="Linux",'
+                    ' DeviceId="jellyburn-01", Version="1.0"'
+                ),
+                "Content-Type": "application/json",
+            }
+        )
+        self.session.request = lambda method, url, **kw: requests.Session.request(
+            self.session, method, url, timeout=kw.pop("timeout", self.TIMEOUT), **kw
+        )
         if api_key:
             self.session.headers["X-MediaBrowser-Token"] = api_key
         elif username and password:

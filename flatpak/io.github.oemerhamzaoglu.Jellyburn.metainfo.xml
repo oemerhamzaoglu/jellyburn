@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.oemerhamzaoglu.Jellyburn</id>
+  <name>Jellyburn</name>
+  <summary>Browse your Jellyfin music library and burn audio CDs</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <developer_name>Ömer Hamzaoğlu</developer_name>
+
+  <description>
+    <p>
+      Jellyburn is a GTK desktop app for browsing a Jellyfin music server,
+      building playlists, and burning them directly to audio CD.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Connects to any Jellyfin server via API key or username/password</li>
+      <li>Artist/album browser with search and sortable columns</li>
+      <li>Playback via mpv with a 10-band equalizer</li>
+      <li>Playlist builder with drag-and-drop reordering, multiple saved playlists</li>
+      <li>Burns audio CDs (with optional CD-Text) or falls back to an MP3 data CD for long playlists</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">io.github.oemerhamzaoglu.Jellyburn.desktop</launchable>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://github.com/user-attachments/assets/df65fc5d-e16f-480a-9d80-68ea98204baa</image>
+      <caption>Jellyburn main window</caption>
+    </screenshot>
+  </screenshots>
+
+  <url type="homepage">https://github.com/oemerhamzaoglu/jellyburn</url>
+  <url type="bugtracker">https://github.com/oemerhamzaoglu/jellyburn/issues</url>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.4.0" date="2026-07-09">
+      <description>
+        <p>Multi-playlist management, CD-Text, MP3 data CD fallback for long playlists, 10-band equalizer, right-click album actions.</p>
+      </description>
+    </release>
+  </releases>
+</component>

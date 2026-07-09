@@ -3,9 +3,8 @@ import json
 import os
 import subprocess
 
-
 REQUIRED_TOOLS = {
-    "mpv":    "Wiedergabe (mpv)",
+    "mpv": "Wiedergabe (mpv)",
     "ffmpeg": "Audio-Konvertierung (ffmpeg)",
 }
 
@@ -44,8 +43,11 @@ def get_iso_tool():
 
 
 def check_dependencies():
-    missing = [label for cmd, label in REQUIRED_TOOLS.items()
-               if subprocess.run(["which", cmd], capture_output=True).returncode != 0]
+    missing = [
+        label
+        for cmd, label in REQUIRED_TOOLS.items()
+        if subprocess.run(["which", cmd], capture_output=True).returncode != 0
+    ]
     if get_burn_tool() is None:
         missing.append("CD-Brennen (cdrskin oder wodim)")
     return missing
@@ -93,6 +95,7 @@ def save_library_cache(server_url, tracks):
 def detect_cd_devices():
     """Gibt Liste von (dev_path, label) für alle erkannten optischen Laufwerke zurück."""
     import glob
+
     devices = []
     for sr in sorted(glob.glob("/sys/block/sr*")):
         name = os.path.basename(sr)

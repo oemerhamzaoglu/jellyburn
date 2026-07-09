@@ -18,7 +18,9 @@ def _path_for(name):
 def list_playlists():
     if not os.path.isdir(PLAYLIST_DIR):
         return []
-    names = [os.path.splitext(f)[0] for f in os.listdir(PLAYLIST_DIR) if f.endswith(".json")]
+    names = [
+        os.path.splitext(f)[0] for f in os.listdir(PLAYLIST_DIR) if f.endswith(".json")
+    ]
     return sorted(names, key=str.lower)
 
 
