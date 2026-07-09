@@ -20,6 +20,7 @@ DEFAULT_CONFIG = {
     "mp3_auto_switch": False,
     "eq_enabled": False,
     "eq_bands": [0.0] * 10,
+    "theme": "dark",
 }
 
 CD_MAX_SECONDS = 74 * 60

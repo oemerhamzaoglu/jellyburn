@@ -11,11 +11,17 @@ LANGUAGES = [
     ("de", "Deutsch"),
 ]
 
+THEMES = [
+    ("dark", "Dark"),
+    ("light", "Light"),
+    ("system", "System"),
+]
+
 
 class SettingsDialog(Gtk.Dialog):
     def __init__(self, parent, config):
         super().__init__(title=_("Settings"), transient_for=parent, modal=True)
-        self.set_default_size(440, 360)
+        self.set_default_size(440, 400)
         self.add_buttons(
             _("Cancel"), Gtk.ResponseType.CANCEL, _("Save"), Gtk.ResponseType.OK
         )
@@ -85,6 +91,13 @@ class SettingsDialog(Gtk.Dialog):
         self.e_mp3_switch.set_active(config.get("mp3_auto_switch", False))
         grid.attach(self.e_mp3_switch, 1, 8, 1, 1)
 
+        self.e_theme = Gtk.ComboBoxText()
+        current_theme = config.get("theme", "dark")
+        for code, name in THEMES:
+            self.e_theme.append(code, _(name))
+        self.e_theme.set_active_id(current_theme)
+        row(_("Theme:"), self.e_theme, 9)
+
         self.show_all()
 
     def get_values(self):
@@ -102,4 +115,5 @@ class SettingsDialog(Gtk.Dialog):
             "language": self.e_lang.get_active_id() or "en",
             "cd_text": self.e_cdtext.get_active(),
             "mp3_auto_switch": self.e_mp3_switch.get_active(),
+            "theme": self.e_theme.get_active_id() or "dark",
         }

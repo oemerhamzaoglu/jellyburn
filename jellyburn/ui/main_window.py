@@ -242,6 +242,27 @@ class MainWindow(Gtk.ApplicationWindow):
             min-width: 1px;
             min-height: 1px;
         }
+        notebook, notebook > stack {
+            background-color: #16162a;
+            border: none;
+        }
+        notebook > header {
+            background-color: #1a1a2e;
+            border: none;
+            border-bottom: 1px solid #0a0a14;
+            box-shadow: none;
+        }
+        notebook > header tabs tab {
+            background-color: transparent;
+            border: none;
+            box-shadow: none;
+            color: #7070a0;
+            padding: 6px 14px;
+        }
+        notebook > header tabs tab:checked {
+            color: #e94560;
+            border-bottom: 2px solid #e94560;
+        }
         .eq-window {
             background-color: #12121a;
             color: #d8d8e0;
@@ -267,11 +288,45 @@ class MainWindow(Gtk.ApplicationWindow):
             background-color: #ff6080;
         }
         """
-        provider = Gtk.CssProvider()
-        provider.load_from_data(css.encode())
-        Gtk.StyleContext.add_provider_for_screen(
-            self.get_screen(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
+        self._dark_css_provider = Gtk.CssProvider()
+        self._dark_css_provider.load_from_data(css.encode())
+        self._dark_css_active = False
+        self._update_theme()
+
+    def _update_theme(self):
+        # Jellyburn's custom CSS is a dark-only design (not
+        # theme-adaptive) - "light" skips it entirely and lets the
+        # default GTK theme render; "system" mirrors whatever GTK
+        # currently reports as the preferred scheme (best-effort on
+        # GTK3, since there is no reliable portal-based color-scheme
+        # query without extra dependencies); "dark" always forces it.
+        theme = self.config.get("theme", "dark")
+        settings = Gtk.Settings.get_default()
+        screen = self.get_screen()
+
+        if theme == "light":
+            want_dark = False
+        elif theme == "dark":
+            want_dark = True
+        else:  # system
+            # "gtk-application-prefer-dark-theme" is an app-side hint for
+            # Adwaita's dark variant, not a reliable signal for whether
+            # the actual active GTK theme (e.g. a custom dark theme like
+            # mx-comfort-dark) is dark. Heuristic: check the theme name.
+            theme_name = (settings.get_property("gtk-theme-name") or "").lower()
+            want_dark = "dark" in theme_name
+
+        if settings is not None and theme != "system":
+            settings.set_property("gtk-application-prefer-dark-theme", want_dark)
+
+        if want_dark and not self._dark_css_active:
+            Gtk.StyleContext.add_provider_for_screen(
+                screen, self._dark_css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            )
+            self._dark_css_active = True
+        elif not want_dark and self._dark_css_active:
+            Gtk.StyleContext.remove_provider_for_screen(screen, self._dark_css_provider)
+            self._dark_css_active = False
 
     def _build_ui(self):
         header = Gtk.HeaderBar(show_close_button=True)
@@ -353,11 +408,7 @@ class MainWindow(Gtk.ApplicationWindow):
         track_sw = Gtk.ScrolledWindow()
         track_sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         # cols: 0=Id  1=Nr  2=Titel  3=Künstler  4=Album  5=Dauer  6=ArtistKey  7=ParentId
-        self.track_store = Gtk.ListStore(str, str, str, str, str, str, str, str)
-        self.track_store.set_sort_func(1, self._sort_track_number, None)
-        self.track_store.set_sort_func(5, self._sort_duration, None)
-        self._track_filter = self.track_store.filter_new()
-        self._track_filter.set_visible_func(self._track_visible)
+        self.track_store, self._track_filter = self._create_track_store()
         self.track_view = Gtk.TreeView(model=self._track_filter, headers_visible=True)
         self.track_view.set_activate_on_single_click(False)
         self.track_view.set_rules_hint(True)
@@ -634,7 +685,7 @@ class MainWindow(Gtk.ApplicationWindow):
             return
         self._connecting = True
         self._connect_generation += 1
-        self.track_store.clear()
+        self._reset_track_store()
         self.artist_store.clear()
         self.album_store.clear()
         self.load_bar.set_fraction(0)
@@ -823,6 +874,28 @@ class MainWindow(Gtk.ApplicationWindow):
         if self._filter_album and model[it][7] != self._filter_album:
             return False
         return True
+
+    def _create_track_store(self):
+        store = Gtk.ListStore(str, str, str, str, str, str, str, str)
+        store.set_sort_func(1, self._sort_track_number, None)
+        store.set_sort_func(5, self._sort_duration, None)
+        track_filter = store.filter_new()
+        track_filter.set_visible_func(self._track_visible)
+        return store, track_filter
+
+    def _reset_track_store(self):
+        # Recreate store+filter from scratch rather than calling
+        # store.clear(): once a custom sort_func has been activated via
+        # column-header clicks, clearing a large (tens of thousands of
+        # rows) sorted ListStore through an attached TreeModelFilter
+        # becomes catastrophically slow (minutes, effectively hangs) -
+        # a fresh store sidesteps that entirely.
+        self.track_store, self._track_filter = self._create_track_store()
+        self.track_view.set_model(self._track_filter)
+        self._track_sort_col = None
+        self._track_sort_order = Gtk.SortType.ASCENDING
+        for c in self.track_view.get_columns():
+            c.set_sort_indicator(False)
 
     def _sort_track_number(self, model, it1, it2, _data):
         def to_int(v):
@@ -1539,6 +1612,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if response == Gtk.ResponseType.OK:
             self.config.update(vals)
             save_config({k: v for k, v in self.config.items() if k != "password"})
+            self._update_theme()
             if lang_changed:
                 info = Gtk.MessageDialog(
                     transient_for=self,

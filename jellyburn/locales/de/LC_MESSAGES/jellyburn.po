@@ -330,3 +330,15 @@ msgstr "Rock"
 
 msgid "Reset"
 msgstr "Zurücksetzen"
+
+msgid "Theme:"
+msgstr "Design:"
+
+msgid "Dark"
+msgstr "Dunkel"
+
+msgid "Light"
+msgstr "Hell"
+
+msgid "System"
+msgstr "System"
