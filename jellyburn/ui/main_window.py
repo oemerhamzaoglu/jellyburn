@@ -705,6 +705,17 @@ class MainWindow(Gtk.ApplicationWindow):
                 password=self.config.get("password") or None,
             )
 
+            # A username/password login yields a fresh api_key - persist
+            # it immediately so any later reconnect (e.g. triggered by an
+            # unrelated settings change) doesn't fall back to whatever
+            # (possibly stale/absent) api_key was in config before. This
+            # must happen regardless of the cached/uncached path below.
+            if self.client.api_key and self.client.api_key != self.config.get(
+                "api_key"
+            ):
+                self.config["api_key"] = self.client.api_key
+                save_config({k: v for k, v in self.config.items() if k != "password"})
+
             cached = load_library_cache(server_url)
             if cached:
                 GLib.idle_add(self._apply_cache, cached)
@@ -851,9 +862,6 @@ class MainWindow(Gtk.ApplicationWindow):
     def _populate_tracks(self, tracks):
         self.all_tracks = tracks
         self.load_bar.hide()
-        if self.client.api_key and self.client.api_key != self.config.get("api_key"):
-            self.config["api_key"] = self.client.api_key
-            save_config({k: v for k, v in self.config.items() if k != "password"})
         # _dur für Cache-Kompatibilität setzen
         for t in tracks:
             t["_dur"] = self.client.format_duration(t.get("RunTimeTicks", 0))
