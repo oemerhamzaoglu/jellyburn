@@ -9,7 +9,6 @@ from gi.repository import Gtk, GLib, GdkPixbuf, Pango
 import requests
 
 from ..api import JellyfinClient, track_artist
-from ..burner import BurnDialog
 from ..config import (
     CD_MAX_SECONDS,
     CD_DATA_MAX_BYTES,
@@ -29,6 +28,7 @@ from ..playlists import (
     delete_playlist as pl_delete,
     rename_playlist as pl_rename,
 )
+from .burn_dialog import BurnDialog
 from .equalizer import EqualizerWindow
 from .mini_player import MiniPlayer
 from .settings_dialog import SettingsDialog
