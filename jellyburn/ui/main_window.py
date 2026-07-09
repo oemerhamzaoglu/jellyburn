@@ -29,6 +29,7 @@ from ..playlists import (
     rename_playlist as pl_rename,
 )
 from .burn_dialog import BurnDialog
+from .dialogs import prompt_text, show_error
 from .equalizer import EqualizerWindow
 from .mini_player import MiniPlayer
 from .settings_dialog import SettingsDialog
@@ -1193,35 +1194,12 @@ class MainWindow(Gtk.ApplicationWindow):
         if notebook:
             notebook.set_current_page(0)
 
-    def _prompt_text(self, title, default=""):
-        dlg = Gtk.Dialog(title=title, transient_for=self, modal=True)
-        dlg.add_buttons(
-            _("Cancel"), Gtk.ResponseType.CANCEL, _("OK"), Gtk.ResponseType.OK
-        )
-        entry = Gtk.Entry(text=default)
-        entry.set_activates_default(True)
-        dlg.set_default_response(Gtk.ResponseType.OK)
-        box = dlg.get_content_area()
-        box.set_margin_start(16)
-        box.set_margin_end(16)
-        box.set_margin_top(16)
-        box.set_margin_bottom(16)
-        box.pack_start(entry, True, True, 0)
-        dlg.show_all()
-        result = None
-        if dlg.run() == Gtk.ResponseType.OK:
-            text = entry.get_text().strip()
-            if text:
-                result = text
-        dlg.destroy()
-        return result
-
     def _get_selected_collection_name(self):
         model, it = self.pl_collection_view.get_selection().get_selected()
         return model[it][0] if it else None
 
     def _new_playlist(self, _btn):
-        name = self._prompt_text(_("New playlist"))
+        name = prompt_text(self, _("New playlist"))
         if not name:
             return
         self._autosave_current_playlist()
@@ -1240,7 +1218,7 @@ class MainWindow(Gtk.ApplicationWindow):
         old_name = self._get_selected_collection_name()
         if not old_name:
             return
-        new_name = self._prompt_text(_("Rename playlist"), default=old_name)
+        new_name = prompt_text(self, _("Rename playlist"), default=old_name)
         if not new_name or new_name == old_name:
             return
         pl_rename(old_name, new_name)
@@ -1296,7 +1274,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 with open(path, "w") as f:
                     json.dump(self.playlist_tracks, f, indent=2)
             except OSError as e:
-                self._show_error(_("Save failed: {error}").format(error=e))
+                show_error(self, _("Save failed: {error}").format(error=e))
         dlg.destroy()
 
     def _load_playlist(self, _btn):
@@ -1344,18 +1322,7 @@ class MainWindow(Gtk.ApplicationWindow):
                     )
                 self._update_cd_counter()
             except (OSError, json.JSONDecodeError, ValueError) as e:
-                self._show_error(_("Load failed: {error}").format(error=e))
-        dlg.destroy()
-
-    def _show_error(self, msg):
-        dlg = Gtk.MessageDialog(
-            transient_for=self,
-            modal=True,
-            message_type=Gtk.MessageType.ERROR,
-            buttons=Gtk.ButtonsType.OK,
-            text=msg,
-        )
-        dlg.run()
+                show_error(self, _("Load failed: {error}").format(error=e))
         dlg.destroy()
 
     def _update_cd_counter(self):
@@ -1439,10 +1406,11 @@ class MainWindow(Gtk.ApplicationWindow):
         if total_s > CD_MAX_SECONDS:
             est_bytes = total_s * (MP3_BITRATE_KBPS * 1000 // 8)
             if est_bytes > CD_DATA_MAX_BYTES:
-                self._show_error(
+                show_error(
+                    self,
                     _(
                         "Playlist is too long even for an MP3 data CD (~{mb} MB estimated, limit ~700 MB)."
-                    ).format(mb=est_bytes // 1_000_000)
+                    ).format(mb=est_bytes // 1_000_000),
                 )
                 return
 
