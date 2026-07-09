@@ -1,5 +1,6 @@
 import json
 import threading
+from datetime import datetime
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -7,14 +8,19 @@ from gi.repository import Gtk, GLib, GdkPixbuf, Pango
 import requests
 
 from ..api import JellyfinClient, track_artist
-from ..burner import BurnDialog
+from ..burner import BurnDialog, MP3_BITRATE_KBPS
 from ..config import (
-    CD_MAX_SECONDS, load_config, save_config,
+    CD_MAX_SECONDS, CD_DATA_MAX_BYTES, load_config, save_config,
     check_dependencies, seconds_to_mmss,
     load_library_cache, save_library_cache,
 )
 from ..i18n import _
 from ..player import Player
+from ..playlists import (
+    list_playlists_info, load_playlist as pl_load, save_playlist as pl_save,
+    delete_playlist as pl_delete, rename_playlist as pl_rename,
+)
+from .equalizer import EqualizerWindow
 from .mini_player import MiniPlayer
 from .settings_dialog import SettingsDialog
 
@@ -25,8 +31,15 @@ class MainWindow(Gtk.ApplicationWindow):
         self.config = load_config()
         self.client = None
         self.player = Player()
+        self.player.set_eq(self.config.get("eq_bands", [0.0] * 10), self.config.get("eq_enabled", False))
+        self.eq_window = None
         self._current_track = None
         self.playlist_tracks = []
+        self.playlist_name = None
+        self._track_sort_col = None
+        self._track_sort_order = Gtk.SortType.ASCENDING
+        self._connecting = False
+        self._connect_generation = 0
         self._ignore_store_signals = False
         self._filter_artist = ""
         self._filter_album = ""
@@ -47,6 +60,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._connect()
 
     def _on_close(self, *_):
+        self._autosave_current_playlist()
         self.player.stop()
         self.mini.destroy()
 
@@ -215,6 +229,30 @@ class MainWindow(Gtk.ApplicationWindow):
             min-width: 1px;
             min-height: 1px;
         }
+        .eq-window {
+            background-color: #12121a;
+            color: #d8d8e0;
+        }
+        .eq-window scale trough {
+            background-color: #2a2a40;
+            min-width: 4px;
+            border-radius: 2px;
+        }
+        .eq-window scale highlight {
+            background-color: #e94560;
+            min-width: 4px;
+            border-radius: 2px;
+        }
+        .eq-window scale slider {
+            background-color: #e94560;
+            border: none;
+            border-radius: 50%;
+            min-width: 14px;
+            min-height: 14px;
+        }
+        .eq-window scale slider:hover {
+            background-color: #ff6080;
+        }
         """
         provider = Gtk.CssProvider()
         provider.load_from_data(css.encode())
@@ -270,6 +308,7 @@ class MainWindow(Gtk.ApplicationWindow):
             rend = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
             col = Gtk.TreeViewColumn(title, rend, text=1)
             col.set_expand(True)
+            col.set_sort_column_id(1)
             tv.append_column(col)
             sw.add(tv)
             return sw, tv
@@ -282,6 +321,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.album_store = Gtk.ListStore(str, str)
         album_sw, self.album_view = _browser_col(self.album_store, _("Albums"))
         self.album_view.get_selection().connect("changed", self._on_album_selected)
+        self.album_view.connect("button-press-event", self._on_album_right_click)
 
         browser_paned.pack1(artist_sw, resize=True, shrink=False)
         browser_paned.pack2(album_sw, resize=True, shrink=False)
@@ -295,6 +335,8 @@ class MainWindow(Gtk.ApplicationWindow):
         track_sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         # cols: 0=Id  1=Nr  2=Titel  3=Künstler  4=Album  5=Dauer  6=ArtistKey  7=ParentId
         self.track_store = Gtk.ListStore(str, str, str, str, str, str, str, str)
+        self.track_store.set_sort_func(1, self._sort_track_number, None)
+        self.track_store.set_sort_func(5, self._sort_duration, None)
         self._track_filter = self.track_store.filter_new()
         self._track_filter.set_visible_func(self._track_visible)
         self.track_view = Gtk.TreeView(model=self._track_filter, headers_visible=True)
@@ -310,10 +352,13 @@ class MainWindow(Gtk.ApplicationWindow):
             c = Gtk.TreeViewColumn(title, rend, text=col)
             c.set_resizable(True)
             c.set_expand(expand)
+            c.set_clickable(True)
+            c.connect("clicked", self._on_track_column_clicked, col)
             self.track_view.append_column(c)
 
         self.track_view.get_selection().set_mode(Gtk.SelectionMode.MULTIPLE)
         self.track_view.connect("row-activated", self._on_track_activated)
+        self.track_view.connect("button-press-event", self._on_track_right_click)
         track_sw.add(self.track_view)
         vpaned.pack2(track_sw, resize=True, shrink=False)
 
@@ -333,14 +378,23 @@ class MainWindow(Gtk.ApplicationWindow):
         right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         right.get_style_context().add_class("panel-right")
 
+        section_label = Gtk.Label(xalign=0, margin_start=8, margin_top=8, margin_bottom=2)
+        section_label.set_markup(f'<span font_desc="11" weight="bold" color="#9090b0">{_("Playlists").upper()}</span>')
+        right.pack_start(section_label, False, False, 0)
+
+        notebook = Gtk.Notebook()
+
+        # ── Tab 1: aktuelle Playlist (zum Bearbeiten/Brennen) ──
+        tab_playlist = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+
         pl_header = Gtk.Box(spacing=4, margin=8)
-        pl_label = Gtk.Label(xalign=0)
-        pl_label.set_markup('<span font_desc="11" weight="bold" color="#9090b0">PLAYLIST</span>')
-        pl_header.pack_start(pl_label, True, True, 0)
+        self.pl_title_label = Gtk.Label(xalign=0)
+        pl_header.pack_start(self.pl_title_label, True, True, 0)
 
         for icon, tip, cb in [
-            ("document-open-symbolic", _("Load playlist"), self._load_playlist),
-            ("document-save-symbolic", _("Save playlist"), self._save_playlist),
+            ("list-add-symbolic", _("New playlist"), self._new_playlist),
+            ("document-open-symbolic", _("Load playlist")+" (JSON)", self._load_playlist),
+            ("document-save-symbolic", _("Save playlist")+" (JSON)", self._save_playlist),
         ]:
             b = Gtk.Button.new_from_icon_name(icon, Gtk.IconSize.SMALL_TOOLBAR)
             b.set_tooltip_text(tip)
@@ -348,9 +402,10 @@ class MainWindow(Gtk.ApplicationWindow):
             pl_header.pack_start(b, False, False, 0)
 
         btn_clear = Gtk.Button(label=_("Clear"))
-        btn_clear.connect("clicked", self._clear_playlist)
+        btn_clear.connect("clicked", self._on_clear_clicked)
         pl_header.pack_start(btn_clear, False, False, 0)
-        right.pack_start(pl_header, False, False, 0)
+        tab_playlist.pack_start(pl_header, False, False, 0)
+        self._set_playlist_title()
 
         cd_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL,
                          margin_start=8, margin_end=8, margin_bottom=4, spacing=2)
@@ -360,8 +415,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.cd_bar.get_style_context().add_class("cd-bar")
         cd_box.pack_start(self.cd_counter, False, False, 0)
         cd_box.pack_start(self.cd_bar, False, False, 0)
-        right.pack_start(cd_box, False, False, 0)
-        right.pack_start(Gtk.Separator(), False, False, 0)
+        tab_playlist.pack_start(cd_box, False, False, 0)
+        tab_playlist.pack_start(Gtk.Separator(), False, False, 0)
 
         sw2 = Gtk.ScrolledWindow()
         self.pl_store = Gtk.ListStore(str, str, str, str, str)
@@ -386,7 +441,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.pl_view.connect("key-press-event", self._on_pl_key)
         self.pl_store.connect("row-deleted", self._sync_playlist_from_store)
         sw2.add(self.pl_view)
-        right.pack_start(sw2, True, True, 0)
+        tab_playlist.pack_start(sw2, True, True, 0)
 
         btn_add = Gtk.Button(label=_("+ Add selection"))
         btn_add.set_margin_start(8)
@@ -394,7 +449,52 @@ class MainWindow(Gtk.ApplicationWindow):
         btn_add.set_margin_top(4)
         btn_add.get_style_context().add_class("add-btn")
         btn_add.connect("clicked", self._add_selected_to_playlist)
-        right.pack_start(btn_add, False, False, 0)
+        tab_playlist.pack_start(btn_add, False, False, 0)
+
+        notebook.append_page(tab_playlist, Gtk.Label(label=_("Editor")))
+
+        # ── Tab 2: Playlist-Sammlung ──
+        tab_collection = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+
+        coll_toolbar = Gtk.Box(spacing=4, margin=8)
+        self.pl_sort_combo = Gtk.ComboBoxText()
+        self.pl_sort_combo.append("az", _("A–Z"))
+        self.pl_sort_combo.append("newest", _("Newest"))
+        self.pl_sort_combo.set_active_id("az")
+        self.pl_sort_combo.connect("changed", lambda _c: self._refresh_playlist_collection())
+        coll_toolbar.pack_start(self.pl_sort_combo, True, True, 0)
+
+        for icon, tip, cb in [
+            ("list-add-symbolic", _("New playlist"), self._new_playlist),
+            ("insert-text-symbolic", _("Rename playlist"), self._rename_playlist),
+            ("edit-delete-symbolic", _("Delete playlist"), self._delete_playlist),
+        ]:
+            b = Gtk.Button.new_from_icon_name(icon, Gtk.IconSize.SMALL_TOOLBAR)
+            b.set_tooltip_text(tip)
+            b.connect("clicked", cb)
+            coll_toolbar.pack_start(b, False, False, 0)
+        tab_collection.pack_start(coll_toolbar, False, False, 0)
+
+        coll_sw = Gtk.ScrolledWindow()
+        # cols: 0=Name  1=Tracks  2=Modified
+        self.pl_collection_store = Gtk.ListStore(str, str, str)
+        self.pl_collection_view = Gtk.TreeView(model=self.pl_collection_store)
+        self.pl_collection_view.set_rules_hint(True)
+        for title, col, expand in [(_("Name"), 0, True), (_("Tracks"), 1, False),
+                                    (_("Modified"), 2, False)]:
+            r = Gtk.CellRendererText(ellipsize=Pango.EllipsizeMode.END)
+            c = Gtk.TreeViewColumn(title, r, text=col)
+            c.set_expand(expand)
+            self.pl_collection_view.append_column(c)
+        self.pl_collection_view.connect("row-activated", self._on_collection_row_activated)
+        coll_sw.add(self.pl_collection_view)
+        tab_collection.pack_start(coll_sw, True, True, 0)
+
+        notebook.append_page(tab_collection, Gtk.Label(label=_("Saved")))
+        notebook.connect("switch-page", self._on_notebook_switch_page)
+
+        right.pack_start(notebook, True, True, 0)
+        self._refresh_playlist_collection()
 
         right.pack_start(Gtk.Separator(), False, False, 4)
 
@@ -421,10 +521,14 @@ class MainWindow(Gtk.ApplicationWindow):
         self.btn_play.connect("clicked", self._play_selected)
         self.btn_stop = Gtk.Button.new_from_icon_name("media-playback-stop-symbolic", Gtk.IconSize.BUTTON)
         self.btn_stop.connect("clicked", self._stop_playback)
+        self.btn_eq = Gtk.Button(label="EQ")
+        self.btn_eq.set_tooltip_text(_("Equalizer"))
+        self.btn_eq.connect("clicked", self._toggle_eq)
         self.np_time = Gtk.Label(label="", xalign=0)
         self.np_time.get_style_context().add_class("now-playing-sub")
         np_ctrl.pack_start(self.btn_play, False, False, 0)
         np_ctrl.pack_start(self.btn_stop, False, False, 0)
+        np_ctrl.pack_start(self.btn_eq, False, False, 0)
         np_ctrl.pack_start(self.np_time, False, False, 4)
 
         self.np_progress = Gtk.Scale.new(Gtk.Orientation.HORIZONTAL, None)
@@ -474,15 +578,19 @@ class MainWindow(Gtk.ApplicationWindow):
         if not self.config.get("server_url"):
             self._open_settings(None)
             return
+        if self._connecting:
+            return
+        self._connecting = True
+        self._connect_generation += 1
         self.track_store.clear()
         self.artist_store.clear()
         self.album_store.clear()
         self.load_bar.set_fraction(0)
         self.load_bar.show()
         self.lib_status.set_text(_("Connecting…"))
-        threading.Thread(target=self._connect_thread, daemon=True).start()
+        threading.Thread(target=self._connect_thread, args=(self._connect_generation,), daemon=True).start()
 
-    def _connect_thread(self):
+    def _connect_thread(self, gen):
         server_url = self.config["server_url"]
         try:
             self.client = JellyfinClient(
@@ -525,6 +633,11 @@ class MainWindow(Gtk.ApplicationWindow):
         except Exception as e:
             GLib.idle_add(self.load_bar.hide)
             GLib.idle_add(self.lib_status.set_text, _("Error: {error}").format(error=e))
+        finally:
+            GLib.idle_add(self._on_connect_thread_done)
+
+    def _on_connect_thread_done(self):
+        self._connecting = False
 
     def _apply_cache(self, tracks):
         self.all_tracks = tracks
@@ -620,6 +733,40 @@ class MainWindow(Gtk.ApplicationWindow):
             return False
         return True
 
+    def _sort_track_number(self, model, it1, it2, _data):
+        def to_int(v):
+            try:
+                return int(v)
+            except (TypeError, ValueError):
+                return 0
+        a, b = to_int(model[it1][1]), to_int(model[it2][1])
+        return (a > b) - (a < b)
+
+    def _sort_duration(self, model, it1, it2, _data):
+        def to_seconds(v):
+            try:
+                m, s = v.split(":")
+                return int(m) * 60 + int(s)
+            except (ValueError, AttributeError):
+                return 0
+        a, b = to_seconds(model[it1][5]), to_seconds(model[it2][5])
+        return (a > b) - (a < b)
+
+    def _on_track_column_clicked(self, column, col_idx):
+        if self._track_sort_col == col_idx:
+            self._track_sort_order = (
+                Gtk.SortType.DESCENDING if self._track_sort_order == Gtk.SortType.ASCENDING
+                else Gtk.SortType.ASCENDING
+            )
+        else:
+            self._track_sort_order = Gtk.SortType.ASCENDING
+        self._track_sort_col = col_idx
+        for c in self.track_view.get_columns():
+            c.set_sort_indicator(False)
+        column.set_sort_indicator(True)
+        column.set_sort_order(self._track_sort_order)
+        self.track_store.set_sort_column_id(col_idx, self._track_sort_order)
+
     def _fill_artist_store(self):
         self._browser_loading = True
         seen = set()
@@ -631,9 +778,12 @@ class MainWindow(Gtk.ApplicationWindow):
                 seen.add(name)
         for name in sorted(seen, key=str.lower):
             self.artist_store.append((name, name))
-        self._browser_loading = False
         self._fill_album_store(self.all_tracks)
-        self.artist_view.get_selection().select_path(Gtk.TreePath.new_first())
+        self._browser_loading = True
+        sel = self.artist_view.get_selection()
+        if sel:
+            sel.select_path(Gtk.TreePath.new_first())
+        self._browser_loading = False
 
     def _fill_album_store(self, tracks):
         self._browser_loading = True
@@ -646,8 +796,10 @@ class MainWindow(Gtk.ApplicationWindow):
                 seen[pid] = t.get("Album", "?")
         for pid, name in sorted(seen.items(), key=lambda x: x[1].lower()):
             self.album_store.append((pid, name))
+        sel = self.album_view.get_selection()
+        if sel:
+            sel.select_path(Gtk.TreePath.new_first())
         self._browser_loading = False
-        self.album_view.get_selection().select_path(Gtk.TreePath.new_first())
 
     def _on_artist_selected(self, selection):
         if self._browser_loading:
@@ -745,6 +897,20 @@ class MainWindow(Gtk.ApplicationWindow):
         self.show()
         self.present()
 
+    def _toggle_eq(self, _btn):
+        if self.eq_window is None:
+            self.eq_window = EqualizerWindow(
+                self, self.config.get("eq_bands", [0.0] * 10),
+                self.config.get("eq_enabled", False), self._on_eq_change,
+            )
+        self.eq_window.present_window()
+
+    def _on_eq_change(self, bands, enabled):
+        self.config["eq_bands"] = bands
+        self.config["eq_enabled"] = enabled
+        save_config({k: v for k, v in self.config.items() if k != "password"})
+        self.player.set_eq(bands, enabled)
+
     def _on_scrub_start(self, widget, event):
         self._scrubbing = True
 
@@ -781,6 +947,24 @@ class MainWindow(Gtk.ApplicationWindow):
         self.mini.clear()
 
     # ── Playlist ──
+    def _on_track_right_click(self, widget, event):
+        if event.button != 3:
+            return
+        path_info = widget.get_path_at_pos(int(event.x), int(event.y))
+        if not path_info:
+            return
+        path = path_info[0]
+        selection = widget.get_selection()
+        if not selection.path_is_selected(path):
+            selection.unselect_all()
+            selection.select_path(path)
+        menu = Gtk.Menu()
+        item_add = Gtk.MenuItem(label=_("Add to Playlist"))
+        item_add.connect("activate", self._add_selected_to_playlist)
+        menu.append(item_add)
+        menu.show_all()
+        menu.popup_at_pointer(event)
+
     def _add_selected_to_playlist(self, _btn):
         sel = self.track_view.get_selection()
         model, paths = sel.get_selected_rows()
@@ -794,6 +978,63 @@ class MainWindow(Gtk.ApplicationWindow):
                 self.playlist_tracks.append(track)
                 self.pl_store.append([track_id, str(len(self.playlist_tracks)), row[2], row[3], row[5]])
         self._update_cd_counter()
+
+    def _on_album_right_click(self, widget, event):
+        if event.button != 3:
+            return
+        path_info = widget.get_path_at_pos(int(event.x), int(event.y))
+        if not path_info:
+            return
+        path = path_info[0]
+        widget.get_selection().select_path(path)
+        album_id = self.album_store[path][0]
+        if not album_id:
+            return
+        menu = Gtk.Menu()
+        item_add = Gtk.MenuItem(label=_("Add to Playlist"))
+        item_add.connect("activate", self._add_album_to_playlist, album_id)
+        menu.append(item_add)
+        item_burn = Gtk.MenuItem(label=_("Burn Album"))
+        item_burn.connect("activate", self._burn_album, album_id)
+        menu.append(item_burn)
+        menu.show_all()
+        menu.popup_at_pointer(event)
+
+    def _add_album_to_playlist(self, _item, album_id):
+        tracks = sorted(
+            (t for t in getattr(self, "all_tracks", []) if t.get("ParentId") == album_id),
+            key=lambda t: t.get("IndexNumber") or 0,
+        )
+        for track in tracks:
+            if any(t["Id"] == track["Id"] for t in self.playlist_tracks):
+                continue
+            self.playlist_tracks.append(track)
+            dur = self.client.format_duration(track.get("RunTimeTicks", 0)) if self.client else ""
+            self.pl_store.append([track["Id"], str(len(self.playlist_tracks)),
+                                  track.get("Name", ""), track_artist(track), dur])
+        self._update_cd_counter()
+
+    def _burn_album(self, _item, album_id):
+        tracks = sorted(
+            (t for t in getattr(self, "all_tracks", []) if t.get("ParentId") == album_id),
+            key=lambda t: t.get("IndexNumber") or 0,
+        )
+        if not tracks:
+            return
+        album_name = tracks[0].get("Album", "?")
+        artist_name = track_artist(tracks[0])
+        self._autosave_current_playlist()
+        self._clear_playlist(None)
+        for track in tracks:
+            self.playlist_tracks.append(track)
+            dur = self.client.format_duration(track.get("RunTimeTicks", 0)) if self.client else ""
+            self.pl_store.append([track["Id"], str(len(self.playlist_tracks)),
+                                  track.get("Name", ""), track_artist(track), dur])
+        self.playlist_name = f"{artist_name} – {album_name}"
+        self._set_playlist_title()
+        self._update_cd_counter()
+        self._refresh_playlist_collection()
+        self._start_burn(None)
 
     def _on_pl_right_click(self, widget, event):
         if event.button == 3:
@@ -841,6 +1082,154 @@ class MainWindow(Gtk.ApplicationWindow):
         self._ignore_store_signals = False
         self._update_cd_counter()
 
+    # ── Playlist-Verwaltung (mehrere gespeicherte Playlists) ──
+    def _set_playlist_title(self):
+        name = self.playlist_name or _("Untitled")
+        self.pl_title_label.set_markup(
+            f'<span font_desc="11" weight="bold" color="#9090b0">{GLib.markup_escape_text(name.upper())}</span>'
+        )
+
+    def _on_clear_clicked(self, _btn):
+        self._clear_playlist(None)
+        self.playlist_name = None
+        self._set_playlist_title()
+
+    def _generate_untitled_name(self):
+        base = _("Untitled")
+        existing = {info["name"] for info in list_playlists_info()}
+        if base not in existing:
+            return base
+        i = 2
+        while f"{base} ({i})" in existing:
+            i += 1
+        return f"{base} ({i})"
+
+    def _autosave_current_playlist(self):
+        if not self.playlist_tracks:
+            return
+        if not self.playlist_name:
+            self.playlist_name = self._generate_untitled_name()
+            self._set_playlist_title()
+        pl_save(self.playlist_name, self.playlist_tracks)
+
+    def _refresh_playlist_collection(self):
+        infos = list_playlists_info()
+        if self.pl_sort_combo.get_active_id() == "newest":
+            infos.sort(key=lambda i: -i["mtime"])
+        else:
+            infos.sort(key=lambda i: i["name"].lower())
+        self.pl_collection_store.clear()
+        for info in infos:
+            modified = datetime.fromtimestamp(info["mtime"]).strftime("%d.%m.%Y %H:%M") if info["mtime"] else ""
+            self.pl_collection_store.append([info["name"], str(info["count"]), modified])
+
+    def _on_notebook_switch_page(self, notebook, page, page_num):
+        if page_num == 1:
+            self._refresh_playlist_collection()
+
+    def _on_collection_row_activated(self, treeview, path, col):
+        name = treeview.get_model()[path][0]
+        self._load_named_playlist(name)
+
+    def _load_named_playlist(self, name):
+        if not name or name == self.playlist_name:
+            return
+        self._autosave_current_playlist()
+        self._ignore_store_signals = True
+        self.playlist_tracks = []
+        self.pl_store.clear()
+        self._ignore_store_signals = False
+        for track in pl_load(name):
+            if not isinstance(track, dict) or "Id" not in track:
+                continue
+            self.playlist_tracks.append(track)
+            dur = self.client.format_duration(track.get("RunTimeTicks", 0)) if self.client else ""
+            self.pl_store.append([track["Id"], str(len(self.playlist_tracks)),
+                                  track.get("Name", ""), track_artist(track), dur])
+        self.playlist_name = name
+        self._set_playlist_title()
+        self._update_cd_counter()
+        self._switch_to_playlist_tab()
+
+    def _switch_to_playlist_tab(self):
+        notebook = self.pl_title_label.get_ancestor(Gtk.Notebook)
+        if notebook:
+            notebook.set_current_page(0)
+
+    def _prompt_text(self, title, default=""):
+        dlg = Gtk.Dialog(title=title, transient_for=self, modal=True)
+        dlg.add_buttons(_("Cancel"), Gtk.ResponseType.CANCEL, _("OK"), Gtk.ResponseType.OK)
+        entry = Gtk.Entry(text=default)
+        entry.set_activates_default(True)
+        dlg.set_default_response(Gtk.ResponseType.OK)
+        box = dlg.get_content_area()
+        box.set_margin_start(16)
+        box.set_margin_end(16)
+        box.set_margin_top(16)
+        box.set_margin_bottom(16)
+        box.pack_start(entry, True, True, 0)
+        dlg.show_all()
+        result = None
+        if dlg.run() == Gtk.ResponseType.OK:
+            text = entry.get_text().strip()
+            if text:
+                result = text
+        dlg.destroy()
+        return result
+
+    def _get_selected_collection_name(self):
+        model, it = self.pl_collection_view.get_selection().get_selected()
+        return model[it][0] if it else None
+
+    def _new_playlist(self, _btn):
+        name = self._prompt_text(_("New playlist"))
+        if not name:
+            return
+        self._autosave_current_playlist()
+        self._ignore_store_signals = True
+        self.playlist_tracks = []
+        self.pl_store.clear()
+        self._ignore_store_signals = False
+        self.playlist_name = name
+        self._set_playlist_title()
+        pl_save(name, [])
+        self._update_cd_counter()
+        self._refresh_playlist_collection()
+        self._switch_to_playlist_tab()
+
+    def _rename_playlist(self, _btn):
+        old_name = self._get_selected_collection_name()
+        if not old_name:
+            return
+        new_name = self._prompt_text(_("Rename playlist"), default=old_name)
+        if not new_name or new_name == old_name:
+            return
+        pl_rename(old_name, new_name)
+        if self.playlist_name == old_name:
+            self.playlist_name = new_name
+            self._set_playlist_title()
+        self._refresh_playlist_collection()
+
+    def _delete_playlist(self, _btn):
+        name = self._get_selected_collection_name()
+        if not name:
+            return
+        dlg = Gtk.MessageDialog(
+            transient_for=self, modal=True, message_type=Gtk.MessageType.WARNING,
+            buttons=Gtk.ButtonsType.OK_CANCEL,
+            text=_("Delete playlist \"{name}\"?").format(name=name),
+        )
+        resp = dlg.run()
+        dlg.destroy()
+        if resp != Gtk.ResponseType.OK:
+            return
+        pl_delete(name)
+        if self.playlist_name == name:
+            self.playlist_name = None
+            self._clear_playlist(None)
+            self._set_playlist_title()
+        self._refresh_playlist_collection()
+
     def _save_playlist(self, _btn):
         if not self.playlist_tracks:
             return
@@ -884,6 +1273,8 @@ class MainWindow(Gtk.ApplicationWindow):
                 if not isinstance(tracks, list):
                     raise ValueError(_("Invalid format"))
                 self._clear_playlist(None)
+                self.playlist_name = None
+                self._set_playlist_title()
                 for track in tracks:
                     if not isinstance(track, dict) or "Id" not in track:
                         continue
@@ -954,27 +1345,48 @@ class MainWindow(Gtk.ApplicationWindow):
                 info.format_secondary_text(_("Please restart Jellyburn for the language change to take effect."))
                 info.run()
                 info.destroy()
-            self._connect()
+            else:
+                self._connect()
 
     # ── Brennen ──
     def _start_burn(self, _btn):
         if not self.playlist_tracks:
             return
         total_s = sum(self.client.ticks_to_seconds(t.get("RunTimeTicks", 0)) for t in self.playlist_tracks)
+        mode = "audio"
         if total_s > CD_MAX_SECONDS:
-            dlg = Gtk.MessageDialog(
-                transient_for=self, modal=True, message_type=Gtk.MessageType.WARNING,
-                buttons=Gtk.ButtonsType.OK_CANCEL,
-                text=_("Playlist too long!"),
-            )
-            dlg.format_secondary_text(
-                _("The playlist is {duration} long – a CD holds only 74:00. Try anyway?").format(duration=seconds_to_mmss(total_s))
-            )
-            resp = dlg.run()
-            dlg.destroy()
-            if resp != Gtk.ResponseType.OK:
+            est_bytes = total_s * (MP3_BITRATE_KBPS * 1000 // 8)
+            if est_bytes > CD_DATA_MAX_BYTES:
+                self._show_error(
+                    _("Playlist is too long even for an MP3 data CD (~{mb} MB estimated, limit ~700 MB).")
+                    .format(mb=est_bytes // 1_000_000)
+                )
                 return
 
-        dlg = BurnDialog(self, self.playlist_tracks, self.client, self.config)
+            if self.config.get("mp3_auto_switch"):
+                mode = "mp3"
+            else:
+                dlg = Gtk.MessageDialog(
+                    transient_for=self, modal=True, message_type=Gtk.MessageType.WARNING,
+                    buttons=Gtk.ButtonsType.NONE,
+                    text=_("Playlist too long!"),
+                )
+                dlg.format_secondary_text(
+                    _("The playlist is {duration} long – a CD holds only 74:00.").format(duration=seconds_to_mmss(total_s))
+                )
+                dlg.add_button(_("Burn as MP3 data CD"), Gtk.ResponseType.OK)
+                dlg.add_button(_("Audio CD anyway"), Gtk.ResponseType.APPLY)
+                dlg.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
+                dlg.set_default_response(Gtk.ResponseType.OK)
+                resp = dlg.run()
+                dlg.destroy()
+                if resp == Gtk.ResponseType.OK:
+                    mode = "mp3"
+                elif resp == Gtk.ResponseType.APPLY:
+                    mode = "audio"
+                else:
+                    return
+
+        dlg = BurnDialog(self, self.playlist_tracks, self.client, self.config, mode=mode)
         dlg.run()
         dlg.destroy()

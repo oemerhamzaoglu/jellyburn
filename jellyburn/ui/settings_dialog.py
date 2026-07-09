@@ -69,6 +69,15 @@ class SettingsDialog(Gtk.Dialog):
         self.e_lang.set_active_id(current_lang)
         row(_("Language:"), self.e_lang, 6)
 
+        self.e_cdtext = Gtk.CheckButton(label=_("Write CD-Text (album/track info on disc)"))
+        self.e_cdtext.set_active(config.get("cd_text", True))
+        grid.attach(self.e_cdtext, 1, 7, 1, 1)
+
+        self.e_mp3_switch = Gtk.CheckButton(
+            label=_("Auto-switch to MP3 data CD if playlist is too long"))
+        self.e_mp3_switch.set_active(config.get("mp3_auto_switch", False))
+        grid.attach(self.e_mp3_switch, 1, 8, 1, 1)
+
         self.show_all()
 
     def get_values(self):
@@ -81,4 +90,6 @@ class SettingsDialog(Gtk.Dialog):
             "cd_device": device,
             "burn_speed": int(self.e_speed.get_value()),
             "language": self.e_lang.get_active_id() or "en",
+            "cd_text": self.e_cdtext.get_active(),
+            "mp3_auto_switch": self.e_mp3_switch.get_active(),
         }

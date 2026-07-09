@@ -17,14 +17,27 @@ DEFAULT_CONFIG = {
     "api_key": "",
     "cd_device": "/dev/sr0",
     "burn_speed": 4,
+    "cd_text": True,
+    "mp3_auto_switch": False,
+    "eq_enabled": False,
+    "eq_bands": [0.0] * 10,
 }
 
 CD_MAX_SECONDS = 74 * 60
+CD_DATA_MAX_BYTES = 700_000_000
 
 
 def get_burn_tool():
     """Gibt 'cdrskin' oder 'wodim' zurück, je nachdem was installiert ist."""
     for cmd in ("cdrskin", "wodim"):
+        if subprocess.run(["which", cmd], capture_output=True).returncode == 0:
+            return cmd
+    return None
+
+
+def get_iso_tool():
+    """Gibt das erste verfügbare ISO-Erstellungswerkzeug zurück."""
+    for cmd in ("xorriso", "genisoimage", "mkisofs"):
         if subprocess.run(["which", cmd], capture_output=True).returncode == 0:
             return cmd
     return None

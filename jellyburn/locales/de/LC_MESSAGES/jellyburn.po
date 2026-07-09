@@ -227,3 +227,106 @@ msgstr "Folgende Programme wurden nicht gefunden:"
 
 msgid "Please install them to enable all features."
 msgstr "Bitte installieren, damit alle Funktionen verfügbar sind."
+
+# CD-Text
+msgid "Write CD-Text (album/track info on disc)"
+msgstr "CD-Text schreiben (Album-/Titelinfos auf der Disc)"
+
+# MP3 data CD
+msgid "Auto-switch to MP3 data CD if playlist is too long"
+msgstr "Bei zu langer Playlist automatisch auf MP3-Daten-CD wechseln"
+
+msgid "Burning as: Audio CD"
+msgstr "Brennmodus: Audio-CD"
+
+msgid "Burning as: MP3 data CD ({kbps} kbps)"
+msgstr "Brennmodus: MP3-Daten-CD ({kbps} kbps)"
+
+msgid "No ISO creation tool found.\nPlease install: sudo apt install xorriso"
+msgstr "Kein ISO-Erstellungswerkzeug gefunden.\nBitte installieren: sudo apt install xorriso"
+
+msgid "Playlist exceeds data CD capacity (700 MB). Aborting."
+msgstr "Playlist überschreitet die Kapazität einer Daten-CD (700 MB). Abbruch."
+
+msgid "Creating disc image…"
+msgstr "Disc-Image wird erstellt…"
+
+msgid "Building ISO…"
+msgstr "ISO wird erstellt…"
+
+msgid "ISO creation failed:\n{error}"
+msgstr "ISO-Erstellung fehlgeschlagen:\n{error}"
+
+msgid "Playlist is too long even for an MP3 data CD (~{mb} MB estimated, limit ~700 MB)."
+msgstr "Die Playlist ist selbst für eine MP3-Daten-CD zu lang (~{mb} MB geschätzt, Limit ~700 MB)."
+
+msgid "The playlist is {duration} long – a CD holds only 74:00."
+msgstr "Die Playlist ist {duration} lang – eine CD fasst nur 74:00."
+
+msgid "Burn as MP3 data CD"
+msgstr "Als MP3-Daten-CD brennen"
+
+msgid "Audio CD anyway"
+msgstr "Trotzdem als Audio-CD"
+
+# Playlist tabs
+msgid "Playlists"
+msgstr "Playlists"
+
+msgid "Editor"
+msgstr "Editor"
+
+msgid "Saved"
+msgstr "Gespeichert"
+
+msgid "Untitled"
+msgstr "Unbenannt"
+
+msgid "A–Z"
+msgstr "A–Z"
+
+msgid "Newest"
+msgstr "Neueste"
+
+msgid "Name"
+msgstr "Name"
+
+msgid "Tracks"
+msgstr "Titel"
+
+msgid "Modified"
+msgstr "Geändert"
+
+msgid "The current unsaved playlist will be replaced. Continue?"
+msgstr "Die aktuelle, ungespeicherte Playlist wird ersetzt. Fortfahren?"
+
+msgid "Add to Playlist"
+msgstr "Zur Playlist hinzufügen"
+
+# Equalizer
+msgid "Equalizer"
+msgstr "Equalizer"
+
+msgid "Enable equalizer"
+msgstr "Equalizer aktivieren"
+
+msgid "Preset:"
+msgstr "Preset:"
+
+msgid "Flat"
+msgstr "Neutral"
+
+msgid "Bass Boost"
+msgstr "Bass-Anhebung"
+
+msgid "Treble Boost"
+msgstr "Höhen-Anhebung"
+
+msgid "Vocal"
+msgstr "Gesang"
+
+msgid "Rock"
+msgstr "Rock"
+
+msgid "Reset"
+msgstr "Zurücksetzen"
