@@ -1625,6 +1625,14 @@ class MainWindow(Gtk.ApplicationWindow):
         response = dlg.run()
         vals = dlg.get_values()
         lang_changed = vals.get("language") != self.config.get("language", "en")
+        # Only fields that actually affect the server connection warrant a
+        # reconnect - switching the theme, burn speed, etc. shouldn't
+        # trigger one (and a non-empty password always means the user is
+        # actively trying to (re-)authenticate right now).
+        connection_changed = bool(vals.get("password")) or any(
+            vals.get(key) != self.config.get(key)
+            for key in ("server_url", "username", "api_key")
+        )
         dlg.destroy()
         if response == Gtk.ResponseType.OK:
             self.config.update(vals)
@@ -1645,7 +1653,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 )
                 info.run()
                 info.destroy()
-            else:
+            elif connection_changed:
                 self._connect()
 
     # ── Brennen ──
