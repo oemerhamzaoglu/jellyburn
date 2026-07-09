@@ -84,48 +84,6 @@ class JellyfinClient:
                 break
         return all_items
 
-    def get_artists(self):
-        uid = self.get_user_id()
-        resp = self.session.get(
-            f"{self.server_url}/Artists",
-            params={"UserId": uid, "Recursive": "true", "Limit": 500},
-        )
-        resp.raise_for_status()
-        return resp.json().get("Items", [])
-
-    def get_albums(self, artist_id=None):
-        uid = self.get_user_id()
-        params = {
-            "IncludeItemTypes": "MusicAlbum",
-            "Recursive": "true",
-            "UserId": uid,
-            "Limit": 500,
-            "Fields": "AlbumArtist,ChildCount,RunTimeTicks",
-        }
-        if artist_id:
-            params["AlbumArtistIds"] = artist_id
-        resp = self.session.get(f"{self.server_url}/Items", params=params)
-        resp.raise_for_status()
-        return resp.json().get("Items", [])
-
-    def get_tracks(self, album_id=None, artist_id=None):
-        uid = self.get_user_id()
-        params = {
-            "IncludeItemTypes": "Audio",
-            "Recursive": "true",
-            "UserId": uid,
-            "Limit": 500,
-            "Fields": "RunTimeTicks,AlbumArtist,Album,IndexNumber,ParentIndexNumber,Path",
-            "SortBy": "ParentIndexNumber,IndexNumber,SortName",
-        }
-        if album_id:
-            params["ParentId"] = album_id
-        if artist_id:
-            params["ArtistIds"] = artist_id
-        resp = self.session.get(f"{self.server_url}/Items", params=params)
-        resp.raise_for_status()
-        return resp.json().get("Items", [])
-
     def get_stream_url(self, item_id):
         uid = self.get_user_id()
         return (

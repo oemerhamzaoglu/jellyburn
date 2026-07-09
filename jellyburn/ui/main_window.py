@@ -9,18 +9,19 @@ from gi.repository import Gtk, GLib, GdkPixbuf, Pango
 import requests
 
 from ..api import JellyfinClient, track_artist
-from ..burner import BurnDialog, MP3_BITRATE_KBPS
+from ..burner import BurnDialog
 from ..config import (
     CD_MAX_SECONDS,
     CD_DATA_MAX_BYTES,
+    MP3_BITRATE_KBPS,
     load_config,
     save_config,
-    seconds_to_mmss,
     load_library_cache,
     save_library_cache,
 )
 from ..i18n import _
 from ..player import Player
+from ..util import seconds_to_mmss
 from ..playlists import (
     list_playlists_info,
     load_playlist as pl_load,
@@ -31,6 +32,8 @@ from ..playlists import (
 from .equalizer import EqualizerWindow
 from .mini_player import MiniPlayer
 from .settings_dialog import SettingsDialog
+
+CD_MAX_LABEL = seconds_to_mmss(CD_MAX_SECONDS)
 
 
 class MainWindow(Gtk.ApplicationWindow):
@@ -46,7 +49,6 @@ class MainWindow(Gtk.ApplicationWindow):
             self.config.get("eq_enabled", False),
         )
         self.eq_window = None
-        self._current_track = None
         self.playlist_tracks = []
         self.playlist_name = None
         self._track_sort_col = None
@@ -500,7 +502,7 @@ class MainWindow(Gtk.ApplicationWindow):
             margin_bottom=4,
             spacing=2,
         )
-        self.cd_counter = Gtk.Label(label="0:00 / 74:00", xalign=0)
+        self.cd_counter = Gtk.Label(label=f"0:00 / {CD_MAX_LABEL}", xalign=0)
         self.cd_counter.get_style_context().add_class("cd-counter")
         self.cd_bar = Gtk.ProgressBar()
         self.cd_bar.get_style_context().add_class("cd-bar")
@@ -641,7 +643,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.np_progress.connect("button-press-event", self._on_scrub_start)
         self.np_progress.connect("button-release-event", self._on_scrub_end)
         self._scrubbing = False
-        self._total_seconds = 0
 
         np_info.pack_start(self.np_title, False, False, 0)
         np_info.pack_start(self.np_sub, False, False, 0)
@@ -1090,7 +1091,6 @@ class MainWindow(Gtk.ApplicationWindow):
             GLib.idle_add(self.art_image.clear)
 
         def on_progress(fraction, time_str, elapsed, total):
-            self._total_seconds = total
             GLib.idle_add(self.np_time.set_text, time_str)
             if not self._scrubbing:
                 GLib.idle_add(self.np_progress.set_range, 0, max(total, 1))
@@ -1630,13 +1630,13 @@ class MainWindow(Gtk.ApplicationWindow):
             ctx.add_class("cd-red")
             ctr_ctx.add_class("over-limit")
             self.cd_counter.set_text(
-                f"{seconds_to_mmss(total_s)} / 74:00  ⚠ " + _("TOO LONG")
+                f"{seconds_to_mmss(total_s)} / {CD_MAX_LABEL}  ⚠ " + _("TOO LONG")
             )
         elif fraction > 0.85:
             ctx.add_class("cd-yellow")
-            self.cd_counter.set_text(f"{seconds_to_mmss(total_s)} / 74:00")
+            self.cd_counter.set_text(f"{seconds_to_mmss(total_s)} / {CD_MAX_LABEL}")
         else:
-            self.cd_counter.set_text(f"{seconds_to_mmss(total_s)} / 74:00")
+            self.cd_counter.set_text(f"{seconds_to_mmss(total_s)} / {CD_MAX_LABEL}")
 
         self.burn_btn.set_sensitive(len(self.playlist_tracks) > 0)
 

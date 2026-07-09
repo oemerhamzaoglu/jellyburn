@@ -4,7 +4,7 @@ import subprocess
 import threading
 import time
 
-from .config import seconds_to_mmss
+from .util import seconds_to_mmss
 
 _IPC_PATH = "/tmp/jellyburn-mpv.sock"
 

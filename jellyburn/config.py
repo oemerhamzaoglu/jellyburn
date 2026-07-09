@@ -25,6 +25,7 @@ DEFAULT_CONFIG = {
 
 CD_MAX_SECONDS = 74 * 60
 CD_DATA_MAX_BYTES = 700_000_000
+MP3_BITRATE_KBPS = 192
 
 
 def get_burn_tool():
@@ -109,7 +110,3 @@ def detect_cd_devices():
             label = dev
         devices.append((dev, label))
     return devices
-
-
-def seconds_to_mmss(s):
-    return f"{int(s) // 60}:{int(s) % 60:02d}"
