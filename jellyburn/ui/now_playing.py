@@ -98,6 +98,8 @@ class NowPlayingBox(Gtk.Box):
             else "media-playback-pause-symbolic"
         )
         self.btn_play.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
+        if self.mini:
+            self.mini.set_playing(paused)
 
     def play_track(self, track_id, label, track):
         client = self._get_client()

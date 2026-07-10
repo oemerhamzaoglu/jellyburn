@@ -1,8 +1,11 @@
+import os
+
 import gi
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
+from .. import __version__
 from ..config import detect_cd_devices
 from ..i18n import _
 
@@ -98,7 +101,29 @@ class SettingsDialog(Gtk.Dialog):
         self.e_theme.set_active_id(current_theme)
         row(_("Theme:"), self.e_theme, 9)
 
+        btn_about = Gtk.Button.new_from_icon_name(
+            "dialog-information-symbolic", Gtk.IconSize.BUTTON
+        )
+        btn_about.set_tooltip_text(_("About Jellyburn"))
+        btn_about.connect("clicked", self._show_about)
+        action_area = self.get_action_area()
+        action_area.pack_start(btn_about, False, False, 0)
+        action_area.set_child_secondary(btn_about, True)
+
         self.show_all()
+
+    def _show_about(self, _btn):
+        source = "Flatpak" if os.path.exists("/.flatpak-info") else "pip"
+        dlg = Gtk.AboutDialog(transient_for=self, modal=True)
+        dlg.set_program_name("Jellyburn")
+        dlg.set_version(f"{__version__} ({source})")
+        dlg.set_comments(_("Jellyfin music player and audio CD burner"))
+        dlg.set_copyright("© 2026 Pixels and More")
+        dlg.set_license_type(Gtk.License.MIT_X11)
+        dlg.set_website("https://buymeacoffee.com/pixelsandmore")
+        dlg.set_website_label(_("Buy me a coffee"))
+        dlg.run()
+        dlg.destroy()
 
     def get_values(self):
         device = (

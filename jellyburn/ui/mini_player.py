@@ -52,17 +52,17 @@ class MiniPlayer(Gtk.Window):
         self.lbl_sub.get_style_context().add_class("now-playing-sub")
 
         ctrl = Gtk.Box(spacing=4)
-        btn_play = Gtk.Button.new_from_icon_name(
+        self.btn_play = Gtk.Button.new_from_icon_name(
             "media-playback-start-symbolic", Gtk.IconSize.BUTTON
         )
-        btn_play.connect("clicked", lambda _: self._on_play(None))
+        self.btn_play.connect("clicked", lambda _: self._on_play(None))
         btn_stop = Gtk.Button.new_from_icon_name(
             "media-playback-stop-symbolic", Gtk.IconSize.BUTTON
         )
         btn_stop.connect("clicked", lambda _: self._on_stop(None))
         self.lbl_time = Gtk.Label(label="", xalign=0)
         self.lbl_time.get_style_context().add_class("now-playing-sub")
-        ctrl.pack_start(btn_play, False, False, 0)
+        ctrl.pack_start(self.btn_play, False, False, 0)
         ctrl.pack_start(btn_stop, False, False, 0)
         ctrl.pack_start(self.lbl_time, False, False, 4)
 
@@ -119,6 +119,16 @@ class MiniPlayer(Gtk.Window):
     # Guarded against firing after destroy(): playback progress callbacks
     # are scheduled via GLib.idle_add from a background thread and may
     # still be in flight when the app is closed mid-playback.
+
+    def set_playing(self, paused):
+        if self._destroyed:
+            return
+        icon = (
+            "media-playback-start-symbolic"
+            if paused
+            else "media-playback-pause-symbolic"
+        )
+        self.btn_play.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
 
     def set_track(self, title, artist):
         if self._destroyed:
