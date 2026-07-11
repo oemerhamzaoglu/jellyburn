@@ -3,7 +3,7 @@ import os
 import gi
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+from gi.repository import Gtk, GdkPixbuf
 
 from .. import __version__
 from ..config import detect_cd_devices
@@ -122,6 +122,14 @@ class SettingsDialog(Gtk.Dialog):
         dlg.set_license_type(Gtk.License.MIT_X11)
         dlg.set_website("https://buymeacoffee.com/pixelsandmore")
         dlg.set_website_label(_("Buy me a coffee"))
+        icon_path = os.path.normpath(
+            os.path.join(os.path.dirname(__file__), "..", "icons", "jellyburn.svg")
+        )
+        if os.path.exists(icon_path):
+            try:
+                dlg.set_logo(GdkPixbuf.Pixbuf.new_from_file_at_size(icon_path, 96, 96))
+            except Exception:
+                pass
         dlg.run()
         dlg.destroy()
 

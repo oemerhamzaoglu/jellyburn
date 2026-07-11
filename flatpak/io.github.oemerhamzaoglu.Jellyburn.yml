@@ -174,3 +174,13 @@ modules:
     sources:
       - type: dir
         path: ..
+        skip:
+          - flatpak/.flatpak-builder
+          - flatpak/build-dir
+          - flatpak/repo
+          - .flatpak-builder
+          - build-dir
+          - build
+          - dist
+          - jellyburn.egg-info
+          - .ruff_cache
