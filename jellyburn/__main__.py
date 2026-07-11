@@ -52,7 +52,7 @@ def _install_desktop_integration():
 
 class JellyburnApp(Gtk.Application):
     def __init__(self):
-        super().__init__(application_id="io.github.oemerhamzaoglu.Jellyburn")
+        super().__init__(application_id="de.pixelsandmore.Jellyburn")
 
     def do_activate(self):
         cfg = load_config()

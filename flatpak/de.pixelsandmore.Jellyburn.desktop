@@ -2,7 +2,7 @@
 Name=Jellyburn
 Comment=Browse your Jellyfin music library and burn audio CDs
 Exec=jellyburn
-Icon=io.github.oemerhamzaoglu.Jellyburn
+Icon=de.pixelsandmore.Jellyburn
 Terminal=false
 Type=Application
 Categories=AudioVideo;Audio;Music;

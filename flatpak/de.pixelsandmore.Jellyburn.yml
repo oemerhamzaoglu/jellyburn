@@ -1,4 +1,4 @@
-app-id: io.github.oemerhamzaoglu.Jellyburn
+app-id: de.pixelsandmore.Jellyburn
 runtime: org.gnome.Platform
 runtime-version: '50'
 sdk: org.gnome.Sdk
@@ -165,12 +165,12 @@ modules:
       # of a local `dir` source - kept as `dir` for now to test the
       # current working tree before it's tagged/released.
       - pip3 install --no-index --no-build-isolation --no-deps --prefix=${FLATPAK_DEST} .
-      - install -Dm644 flatpak/io.github.oemerhamzaoglu.Jellyburn.desktop
-        /app/share/applications/io.github.oemerhamzaoglu.Jellyburn.desktop
+      - install -Dm644 flatpak/de.pixelsandmore.Jellyburn.desktop
+        /app/share/applications/de.pixelsandmore.Jellyburn.desktop
       - install -Dm644 jellyburn/icons/jellyburn.svg
-        /app/share/icons/hicolor/scalable/apps/io.github.oemerhamzaoglu.Jellyburn.svg
-      - install -Dm644 flatpak/io.github.oemerhamzaoglu.Jellyburn.metainfo.xml
-        /app/share/metainfo/io.github.oemerhamzaoglu.Jellyburn.metainfo.xml
+        /app/share/icons/hicolor/scalable/apps/de.pixelsandmore.Jellyburn.svg
+      - install -Dm644 flatpak/de.pixelsandmore.Jellyburn.metainfo.xml
+        /app/share/metainfo/de.pixelsandmore.Jellyburn.metainfo.xml
     sources:
       - type: dir
         path: ..

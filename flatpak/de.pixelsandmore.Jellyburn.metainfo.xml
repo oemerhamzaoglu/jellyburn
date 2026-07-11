@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>io.github.oemerhamzaoglu.Jellyburn</id>
+  <id>de.pixelsandmore.Jellyburn</id>
   <name>Jellyburn</name>
   <summary>Browse your Jellyfin music library and burn audio CDs</summary>
   <metadata_license>MIT</metadata_license>
   <project_license>MIT</project_license>
-  <developer_name>Ömer Hamzaoğlu</developer_name>
+  <developer id="de.pixelsandmore">
+    <name>Pixels and More</name>
+  </developer>
 
   <description>
     <p>
@@ -22,7 +24,7 @@
     </ul>
   </description>
 
-  <launchable type="desktop-id">io.github.oemerhamzaoglu.Jellyburn.desktop</launchable>
+  <launchable type="desktop-id">de.pixelsandmore.Jellyburn.desktop</launchable>
 
   <screenshots>
     <screenshot type="default">
@@ -37,6 +39,11 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.4.1" date="2026-07-11">
+      <description>
+        <p>About dialog with app info and support link, app logo, mini-player pause-icon fix, system dark-mode detection via the desktop portal, and a large internal refactor.</p>
+      </description>
+    </release>
     <release version="0.4.0" date="2026-07-09">
       <description>
         <p>Multi-playlist management, CD-Text, MP3 data CD fallback for long playlists, 10-band equalizer, right-click album actions.</p>
