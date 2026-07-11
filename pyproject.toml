@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jellyburn"
-version = "0.4.0"
+version = "0.4.1"
 description = "A GTK music player for Jellyfin with CD burning support"
 readme = "README.md"
 license = "MIT"
-authors = [{ name = "Ömer Hamzaoğlu" }]
+authors = [{ name = "Pixels and More", email = "hallo@pixelsandmore.de" }]
 keywords = ["jellyfin", "music", "cd", "burning", "gtk", "linux"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -28,8 +28,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/oemerhamzaoglu/jellyburn"
-Issues = "https://github.com/oemerhamzaoglu/jellyburn/issues"
+Homepage = "https://github.com/pixels-more/jellyburn"
+Issues = "https://github.com/pixels-more/jellyburn/issues"
 
 [project.scripts]
 jellyburn = "jellyburn.__main__:main"

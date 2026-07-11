@@ -8,3 +8,8 @@ venv/
 *.egg
 .env
 .config/jellyburn.json
+
+# Flatpak build artifacts
+.flatpak-builder/
+flatpak/build-dir/
+flatpak/repo/

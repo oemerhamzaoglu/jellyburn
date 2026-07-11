@@ -65,7 +65,7 @@ pip install jellyburn
 Or run from source:
 
 ```bash
-git clone https://github.com/oemerhamzaoglu/jellyburn
+git clone https://github.com/pixels-more/jellyburn
 cd jellyburn
 pip install -e .
 jellyburn
@@ -79,7 +79,7 @@ After installing via pip, add Jellyburn to your application menu:
 # Icon
 mkdir -p ~/.local/share/icons/hicolor/scalable/apps
 curl -o ~/.local/share/icons/hicolor/scalable/apps/jellyburn.svg \
-  https://raw.githubusercontent.com/oemerhamzaoglu/jellyburn/main/jellyburn/icons/jellyburn.svg
+  https://raw.githubusercontent.com/pixels-more/jellyburn/main/jellyburn/icons/jellyburn.svg
 
 # Desktop entry
 mkdir -p ~/.local/share/applications
