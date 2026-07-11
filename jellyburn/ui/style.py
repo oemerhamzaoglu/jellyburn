@@ -1,7 +1,7 @@
 import gi
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+from gi.repository import Gtk, Gio, GLib
 
 DARK_CSS = """
 window, .main-box {
@@ -224,13 +224,40 @@ class ThemeManager:
         self._dark_css_active = False
         self.update()
 
+    @staticmethod
+    def _portal_color_scheme():
+        # Query the XDG Settings portal for the desktop's preferred
+        # color scheme. Returns 1 (dark), 2 (light), 0 (no preference),
+        # or None if the portal is unavailable. This is the reliable
+        # cross-environment signal - crucially it works inside a Flatpak
+        # sandbox, where the host GTK theme name is not always exposed
+        # (and even when it is, its name may not contain "dark").
+        try:
+            proxy = Gio.DBusProxy.new_for_bus_sync(
+                Gio.BusType.SESSION,
+                Gio.DBusProxyFlags.NONE,
+                None,
+                "org.freedesktop.portal.Desktop",
+                "/org/freedesktop/portal/desktop",
+                "org.freedesktop.portal.Settings",
+                None,
+            )
+            result = proxy.call_sync(
+                "Read",
+                GLib.Variant("(ss)", ("org.freedesktop.appearance", "color-scheme")),
+                Gio.DBusCallFlags.NONE,
+                -1,
+                None,
+            )
+            return result.unpack()[0]
+        except Exception:
+            return None
+
     def update(self):
         # Jellyburn's custom CSS is a dark-only design (not
         # theme-adaptive) - "light" skips it entirely and lets the
-        # default GTK theme render; "system" mirrors whatever GTK
-        # currently reports as the preferred scheme (best-effort on
-        # GTK3, since there is no reliable portal-based color-scheme
-        # query without extra dependencies); "dark" always forces it.
+        # default GTK theme render; "system" follows the desktop's
+        # preferred color scheme; "dark" always forces it.
         theme = self._config.get("theme", "dark")
         settings = Gtk.Settings.get_default()
 
@@ -239,12 +266,15 @@ class ThemeManager:
         elif theme == "dark":
             want_dark = True
         else:  # system
-            # "gtk-application-prefer-dark-theme" is an app-side hint for
-            # Adwaita's dark variant, not a reliable signal for whether
-            # the actual active GTK theme (e.g. a custom dark theme like
-            # mx-comfort-dark) is dark. Heuristic: check the theme name.
-            theme_name = (settings.get_property("gtk-theme-name") or "").lower()
-            want_dark = "dark" in theme_name
+            scheme = self._portal_color_scheme()
+            if scheme in (1, 2):
+                want_dark = scheme == 1
+            else:
+                # Portal unavailable - fall back to a theme-name heuristic
+                # ("gtk-application-prefer-dark-theme" is only an app-side
+                # request, not a readout of the active scheme).
+                theme_name = (settings.get_property("gtk-theme-name") or "").lower()
+                want_dark = "dark" in theme_name
 
         if settings is not None and theme != "system":
             settings.set_property("gtk-application-prefer-dark-theme", want_dark)
