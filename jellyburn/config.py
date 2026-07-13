@@ -37,6 +37,7 @@ DEFAULT_CONFIG = {
     "eq_enabled": False,
     "eq_bands": [0.0] * 10,
     "theme": "dark",
+    "language": "en",
 }
 
 CD_MAX_SECONDS = 74 * 60
