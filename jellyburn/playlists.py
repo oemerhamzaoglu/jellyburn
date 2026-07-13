@@ -2,7 +2,9 @@ import json
 import os
 import re
 
-PLAYLIST_DIR = os.path.expanduser("~/.config/jellyburn_playlists")
+from .config import CONFIG_HOME
+
+PLAYLIST_DIR = os.path.join(CONFIG_HOME, "jellyburn_playlists")
 
 
 def sanitize_name(name):

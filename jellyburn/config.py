@@ -8,7 +8,23 @@ REQUIRED_TOOLS = {
     "ffmpeg": "Audio-Konvertierung (ffmpeg)",
 }
 
-CONFIG_FILE = os.path.expanduser("~/.config/jellyburn.json")
+
+def _xdg_dir(env_var, fallback):
+    # Respect the XDG base-directory spec. This is essential inside a
+    # Flatpak sandbox: XDG_CONFIG_HOME/XDG_CACHE_HOME point at the app's
+    # persisted per-app directory, whereas a hardcoded ~/.config resolves
+    # (via HOME) to a path in the sandbox's *ephemeral* overlay that is
+    # wiped on every restart - so settings never persisted there. An
+    # unset or non-absolute value falls back to the ~ default, keeping
+    # native behavior identical.
+    path = os.environ.get(env_var, "")
+    return path if path.startswith(os.sep) else os.path.expanduser(fallback)
+
+
+CONFIG_HOME = _xdg_dir("XDG_CONFIG_HOME", "~/.config")
+CACHE_HOME = _xdg_dir("XDG_CACHE_HOME", "~/.cache")
+
+CONFIG_FILE = os.path.join(CONFIG_HOME, "jellyburn.json")
 
 DEFAULT_CONFIG = {
     "server_url": "",
@@ -69,7 +85,7 @@ def save_config(cfg):
         json.dump(cfg, f, indent=2)
 
 
-CACHE_DIR = os.path.expanduser("~/.cache/jellyburn")
+CACHE_DIR = os.path.join(CACHE_HOME, "jellyburn")
 
 
 def _cache_path(server_url):
