@@ -1,7 +1,17 @@
+import os
+
 import gi
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gio, GLib
+
+# Inside a Flatpak sandbox the host GTK theme's files are usually not
+# available, so GTK falls back to the runtime's light "Default" theme,
+# which ignores gtk-application-prefer-dark-theme. Widgets our custom
+# CSS doesn't explicitly cover (menus, entries, dialogs, combos) then
+# render light on top of the dark skin ("half-dark" look). We detect the
+# sandbox to pin a guaranteed-dark base there.
+_IN_FLATPAK = os.path.exists("/.flatpak-info")
 
 DARK_CSS = """
 window, .main-box {
@@ -222,6 +232,12 @@ class ThemeManager:
         self._dark_css_provider = Gtk.CssProvider()
         self._dark_css_provider.load_from_data(DARK_CSS.encode())
         self._dark_css_active = False
+        settings = Gtk.Settings.get_default()
+        # Remember the host theme name so we can restore it when leaving
+        # dark mode inside the sandbox (see update()).
+        self._original_theme_name = (
+            settings.get_property("gtk-theme-name") if settings else None
+        )
         self.update()
 
     @staticmethod
@@ -276,7 +292,17 @@ class ThemeManager:
                 theme_name = (settings.get_property("gtk-theme-name") or "").lower()
                 want_dark = "dark" in theme_name
 
-        if settings is not None and theme != "system":
+        if settings is not None:
+            # Inside the sandbox, pin GTK's built-in Adwaita (its dark
+            # variant is always present and honors prefer-dark) as a
+            # reliable dark base for the widgets our CSS doesn't cover;
+            # restore the host theme name when not dark. Native runs keep
+            # the host theme untouched.
+            if _IN_FLATPAK:
+                settings.set_property(
+                    "gtk-theme-name",
+                    "Adwaita" if want_dark else self._original_theme_name,
+                )
             settings.set_property("gtk-application-prefer-dark-theme", want_dark)
 
         if want_dark and not self._dark_css_active:
